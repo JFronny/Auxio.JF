@@ -89,7 +89,7 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
         indexer.registerController(this)
         if (musicStore.library == null && indexer.isIndeterminate) {
             logD("No library present and no previous response, indexing music now")
-            onStartIndexing()
+            onStartIndexing(false)
         }
 
         logD("Service created.")
@@ -117,13 +117,22 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
 
     // --- CONTROLLER CALLBACKS ---
 
-    override fun onStartIndexing() {
+    override fun onStartIndexing(reindex: Boolean) {
         if (indexer.isIndexing) {
             currentIndexJob?.cancel()
             indexer.cancelLast()
         }
 
-        currentIndexJob = indexScope.launch { indexer.index(this@IndexerService) }
+        currentIndexJob = indexScope.launch {
+            // Reload the media store
+            if (reindex) {
+                SDReIndex.reindex(this@IndexerService) {
+                    indexer.index(this@IndexerService)
+                }
+            } else {
+                indexer.index(this@IndexerService)
+            }
+        }
     }
 
     override fun onIndexerStateChanged(state: Indexer.State?) {
@@ -228,7 +237,7 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
             getString(R.string.set_key_exclude_non_music),
             getString(R.string.set_key_music_dirs),
             getString(R.string.set_key_music_dirs_include),
-            getString(R.string.set_key_separators) -> onStartIndexing()
+            getString(R.string.set_key_separators) -> onStartIndexing(false)
             getString(R.string.set_key_observing) -> {
                 if (!indexer.isIndexing) {
                     updateIdleSession()
@@ -263,7 +272,7 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
             // Check here if we should even start a reindex. This is much less bug-prone than
             // registering and de-registering this component as this setting changes.
             if (settings.shouldBeObserving) {
-                onStartIndexing()
+                onStartIndexing(false)
             }
         }
     }

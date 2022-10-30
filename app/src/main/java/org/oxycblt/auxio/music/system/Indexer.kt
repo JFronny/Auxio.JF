@@ -21,10 +21,10 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Looper
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.oxycblt.auxio.BuildConfig
@@ -179,7 +179,7 @@ class Indexer {
     @Synchronized
     fun requestReindex() {
         logD("Requesting reindex")
-        controller?.onStartIndexing()
+        controller?.onStartIndexing(true)
     }
 
     /**
@@ -434,7 +434,7 @@ class Indexer {
     }
 
     interface Controller : Callback {
-        fun onStartIndexing()
+        fun onStartIndexing(reindex: Boolean)
     }
 
     companion object {

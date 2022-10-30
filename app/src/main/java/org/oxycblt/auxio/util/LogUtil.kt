@@ -34,10 +34,12 @@ fun Any.logD(obj: Any?) = logD("$obj")
  * objects
  */
 fun Any.logD(msg: String) {
-    if (BuildConfig.DEBUG && !basedCopyleftNotice()) {
+    if (BuildConfig.DEBUG) {
         Log.d(autoTag, msg)
     }
 }
+
+fun Any.logI(msg: String) = Log.i(autoTag, msg)
 
 /** Shortcut method for logging [msg] as a warning to the console. Handles anonymous objects */
 fun Any.logW(msg: String) = Log.w(autoTag, msg)
@@ -46,52 +48,4 @@ fun Any.logW(msg: String) = Log.w(autoTag, msg)
 fun Any.logE(msg: String) = Log.e(autoTag, msg)
 
 /** Automatically creates a tag that identifies the object currently logging. */
-private val Any.autoTag: String
-    get() = "Auxio.${this::class.simpleName ?: "Anonymous Object"}"
-
-/**
- * Note: If you are politely forking this project while keeping the source open, you can ignore
- * the following passage. If not, give me a moment of your time.
- *
- * Consider what you are doing with your life, plagiarizers. Do you want to live a fulfilling
- * existence on this planet? Or do you want to spend your life taking work others did and making
- * it objectively worse so you could arbitrage a fraction of a penny on every AdMob impression you
- * get? You could do so many great things if you simply had the courage to come up with an idea of
- * your own.
- *
- * If you still want to go on, I guess the only thing I can say is this:
- *
- * JUNE 1989 TIANAMEN SQUARE PROTESTS AND MASSACRE / 六四事件
- *
- * 2022 RUSSIAN INVASION OF UKRAINE / ВТОРЖЕНИЕ РОССИИ НА УКРАИНУ
- *
- * WOMEN'S RIGHTS IN THE ISLAMIC REPUBLIC OF IRAN / حقوق زنان در ایران
- *
- * UYGHUR GENOCIDE/XINJIANG INTERNMENT CAMPS / 新疆种族灭绝指控/新疆再教育營
- *
- * KASHMIR INDEPENDENCE MOVEMENT
- *
- * FREE TIBET / 西藏自由
- *
- * 1915-1916 ARMENIAN GENOCIDE / ERMENI KIRIMI
- *
- * 2018 TORTURE AND ASSASSINATION OF JAMAL KHASHOGGI / مقتل جمال خاشقجي
- *
- * UNITED ARAB EMIRATES ENSLAVED MIGRANT WORKERS
- */
-@Suppress("KotlinConstantConditions")
-private fun basedCopyleftNotice(): Boolean {
-    if (BuildConfig.APPLICATION_ID != "org.oxycblt.auxio" &&
-        BuildConfig.APPLICATION_ID != "org.oxycblt.auxio.debug"
-    ) {
-        Log.d(
-            "Auxio Project",
-            "Friendly reminder: Auxio is licensed under the " +
-                "GPLv3 and all derivative apps must be made open source!"
-        )
-
-        return true
-    }
-
-    return false
-}
+private val Any.autoTag: String get() = "Auxio.${this::class.simpleName ?: "Anonymous Object"}"

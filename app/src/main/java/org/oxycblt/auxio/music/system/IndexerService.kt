@@ -25,11 +25,9 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.MediaStore
+import android.widget.Toast
 import coil.imageLoader
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicStore
@@ -39,6 +37,7 @@ import org.oxycblt.auxio.ui.system.ForegroundManager
 import org.oxycblt.auxio.util.contentResolverSafe
 import org.oxycblt.auxio.util.getSystemServiceCompat
 import org.oxycblt.auxio.util.logD
+import java.lang.Runnable
 
 /**
  * A [Service] that handles the music loading process.
@@ -126,8 +125,14 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
         currentIndexJob = indexScope.launch {
             // Reload the media store
             if (reindex) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@IndexerService, "Reindexing", Toast.LENGTH_SHORT).show()
+                }
                 SDReIndex.reindex(this@IndexerService) {
                     indexer.index(this@IndexerService)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@IndexerService, "Finished Indexing", Toast.LENGTH_LONG).show()
+                    }
                 }
             } else {
                 indexer.index(this@IndexerService)

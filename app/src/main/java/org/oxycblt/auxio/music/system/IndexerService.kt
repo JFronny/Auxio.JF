@@ -128,11 +128,10 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@IndexerService, "Reindexing", Toast.LENGTH_SHORT).show()
                 }
-                SDReIndex.reindex(this@IndexerService) {
-                    indexer.index(this@IndexerService)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@IndexerService, "Finished Indexing", Toast.LENGTH_LONG).show()
-                    }
+                SDReIndex.reindex(this@IndexerService)
+                indexer.index(this@IndexerService)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@IndexerService, "Finished Indexing", Toast.LENGTH_LONG).show()
                 }
             } else {
                 indexer.index(this@IndexerService)

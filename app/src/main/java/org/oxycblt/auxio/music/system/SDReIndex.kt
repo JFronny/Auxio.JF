@@ -13,7 +13,7 @@ import java.util.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-class SDReIndex(val root: File, val context: Context, val finished: suspend () -> Unit) {
+class SDReIndex(val root: File, val context: Context) {
     private val toProcess: MutableSet<File> = TreeSet()
     private val pathNames: MutableList<String> = ArrayList()
     private var lastGoodProcessed: Int = -1
@@ -114,13 +114,12 @@ class SDReIndex(val root: File, val context: Context, val finished: suspend () -
 
     private suspend fun scannerEnded() {
         logI("Finished")
-        finished()
     }
 
     companion object {
-        suspend fun reindex(context: Context, finished: suspend () -> Unit) {
+        suspend fun reindex(context: Context) {
             val f = File("/storage/emulated/0")
-            if (f.exists()) SDReIndex(f, context, finished).preprocess()
+            if (f.exists()) SDReIndex(f, context).preprocess()
         }
 
         suspend inline fun suspendNop(crossinline block: (() -> Unit) -> Unit) {

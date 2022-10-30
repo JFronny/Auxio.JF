@@ -34,7 +34,6 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.AppBarLayout
-import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.transition.MaterialSharedAxis
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.MainFragmentDirections
@@ -143,8 +142,7 @@ class HomeFragment : ViewBindingFragment<FragmentHomeBinding>(), Toolbar.OnMenuI
                 }
             )
 
-            TabLayoutMediator(binding.homeTabs, this, AdaptiveTabStrategy(context, homeModel))
-                .attach()
+            BottomNavigationMediator(binding.bottomNavigation, this, homeModel).attach()
 
             // ViewPager2 will nominally consume window insets, which will then break the window
             // insets applied to the indexing view before API 30. Fix this by overriding the
@@ -282,11 +280,11 @@ class HomeFragment : ViewBindingFragment<FragmentHomeBinding>(), Toolbar.OnMenuI
         if (homeModel.tabs.size == 1) {
             // A single tag makes the tab layout redundant, hide it and disable the collapsing
             // behavior.
-            binding.homeTabs.isVisible = false
+            binding.bottomNavigation.isVisible = false
             binding.homeAppbar.setExpanded(true, false)
             toolbarParams.scrollFlags = 0
         } else {
-            binding.homeTabs.isVisible = true
+            binding.bottomNavigation.isVisible = true
             toolbarParams.scrollFlags =
                 AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL or
                 AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS
@@ -379,8 +377,10 @@ class HomeFragment : ViewBindingFragment<FragmentHomeBinding>(), Toolbar.OnMenuI
         val binding = requireBinding()
         if (!hasLoaded || isFastScrolling) {
             binding.homeFab.hide()
+            binding.bottomNavigation.visibility = View.GONE
         } else {
             binding.homeFab.show()
+            binding.bottomNavigation.visibility = View.VISIBLE
         }
     }
 

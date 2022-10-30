@@ -21,15 +21,6 @@
             app:menu="@menu/menu_home"
             app:title="@string/info_app_name" />
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/home_tabs"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@android:color/transparent"
-            app:tabContentStart="@dimen/spacing_medium"
-            app:tabGravity="start"
-            app:tabMode="scrollable" />
-
     </org.oxycblt.auxio.ui.AuxioAppBarLayout>
 
 
@@ -111,21 +102,32 @@
 
     </FrameLayout>
 
-    <org.oxycblt.auxio.home.EdgeFrameLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_anchor="@id/home_content"
-        app:layout_anchorGravity="bottom|end">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/home_fab"
-            style="@style/Widget.Auxio.FloatingActionButton.Adaptive"
-            android:layout_width="wrap_content"
+        <androidx.coordinatorlayout.widget.CoordinatorLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/home_fab"
+                style="@style/Widget.Auxio.FloatingActionButton.Adaptive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="@dimen/spacing_medium"
+                android:contentDescription="@string/desc_shuffle_all"
+                android:src="@drawable/ic_shuffle_off_24"/>
+        </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottom_navigation"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="@dimen/spacing_medium"
-            android:contentDescription="@string/desc_shuffle_all"
-            android:src="@drawable/ic_shuffle_off_24" />
-
-    </org.oxycblt.auxio.home.EdgeFrameLayout>
+            android:layout_gravity="bottom"
+            app:layout_insetEdge="bottom"/>
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

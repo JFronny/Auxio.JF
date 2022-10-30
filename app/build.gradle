@@ -11,7 +11,7 @@ android {
     namespace "org.oxycblt.auxio"
 
     defaultConfig {
-        applicationId namespace
+        applicationId "io.gitlab.jfronny.auxio"
         versionName "2.6.3"
         versionCode 22
 

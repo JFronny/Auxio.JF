@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2023 Auxio Project
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
 package org.oxycblt.auxio.home
 
 import android.view.Menu
@@ -9,13 +26,15 @@ import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.navigation.NavigationBarView.OnItemSelectedListener
+import kotlin.math.min
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicMode
-import kotlin.math.min
 
-class BottomNavigationMediator(private val navigation: NavigationBarView,
-                               private val viewPager: ViewPager2,
-                               private val homeModel: HomeViewModel) {
+class BottomNavigationMediator(
+    private val navigation: NavigationBarView,
+    private val viewPager: ViewPager2,
+    private val tabs: List<MusicMode>
+) {
     private val adapter: Adapter<*> = viewPager.adapter!!
     private val menu: Menu = navigation.menu
 
@@ -27,7 +46,7 @@ class BottomNavigationMediator(private val navigation: NavigationBarView,
         val pagerAdapterObserver = PagerAdapterObserver()
         adapter.registerAdapterDataObserver(pagerAdapterObserver)
 
-        populateTabsFromPagerAdapter();
+        populateTabsFromPagerAdapter()
     }
 
     private fun populateTabsFromPagerAdapter() {
@@ -36,7 +55,7 @@ class BottomNavigationMediator(private val navigation: NavigationBarView,
             val icon: Int
             val label: Int
 
-            when (homeModel.tabs[i]) {
+            when (tabs[i]) {
                 MusicMode.SONGS -> {
                     icon = R.drawable.ic_song_24
                     label = R.string.lbl_songs
@@ -84,10 +103,15 @@ class BottomNavigationMediator(private val navigation: NavigationBarView,
 
     private inner class PagerAdapterObserver : AdapterDataObserver() {
         override fun onChanged() = populateTabsFromPagerAdapter()
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int) = populateTabsFromPagerAdapter()
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) = populateTabsFromPagerAdapter()
-        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) = populateTabsFromPagerAdapter()
-        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) = populateTabsFromPagerAdapter()
-        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) = populateTabsFromPagerAdapter()
+        override fun onItemRangeChanged(positionStart: Int, itemCount: Int) =
+            populateTabsFromPagerAdapter()
+        override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) =
+            populateTabsFromPagerAdapter()
+        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) =
+            populateTabsFromPagerAdapter()
+        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) =
+            populateTabsFromPagerAdapter()
+        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) =
+            populateTabsFromPagerAdapter()
     }
 }

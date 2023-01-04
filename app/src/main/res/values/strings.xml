@@ -60,9 +60,9 @@
     <string name="lbl_mixtapes">Mixtapes</string>
     <!-- As in the collection of music -->
     <string name="lbl_mixtape">Mixtape</string>
-    <!-- As in a compilation of several performances that blend into a single continuous flow of music -->
+    <!-- As in a compilation of several performances that blend into a single continuous flow of music (Also known as DJ Mixes) -->
     <string name="lbl_mixes">Mixes</string>
-    <!-- As in a compilation of several performances that blend into a single continuous flow of music -->
+    <!-- As in a compilation of several performances that blend into a single continuous flow of music (Also known as DJ Mixes) -->
     <string name="lbl_mix">Mix</string>
 
     <!-- As in music that was performed live -->
@@ -96,7 +96,9 @@
     <string name="lbl_playback">Now playing</string>
     <string name="lbl_equalizer">Equalizer</string>
     <string name="lbl_play">Play</string>
+    <string name="lbl_play_selected">Play selected</string>
     <string name="lbl_shuffle">Shuffle</string>
+    <string name="lbl_shuffle_selected">Shuffle selected</string>
 
     <string name="lbl_queue">Queue</string>
     <string name="lbl_play_next">Play next</string>
@@ -123,10 +125,12 @@
 
     <string name="lbl_ok">OK</string>
     <string name="lbl_cancel">Cancel</string>
+    <!-- As in to save a setting -->
+    <string name="lbl_save">Save</string>
+    <!-- as in to reset to a default setting -->
+    <string name="lbl_reset">Reset</string>
     <!-- As in to add a new folder in the "Music folders" setting -->
     <string name="lbl_add">Add</string>
-    <!-- As in to save the "Music folders" setting -->
-    <string name="lbl_save">Save</string>
 
     <!-- Referring to playback state -->
     <string name="lbl_state_saved">State saved</string>
@@ -138,18 +142,18 @@
     <string name="lbl_about">About</string>
     <string name="lbl_version">Version</string>
     <string name="lbl_code">Source code</string>
-    <string name="lbl_faq">FAQ</string>
+    <string name="lbl_wiki">Wiki</string>
     <string name="lbl_licenses">Licenses</string>
     <string name="lbl_library_counts">Library statistics</string>
 
     <!-- Long Namespace | Longer Descriptions -->
     <eat-comment />
 
-    <string name="lng_playback">View and control music playback</string>
+    <string name="lng_widget">View and control music playback</string>
     <string name="lng_indexing">Loading your music library…</string>
     <string name="lng_observing">Monitoring your music library for changes…</string>
     <string name="lng_queue_added">Added to queue</string>
-    <string name="lng_author">Developed by OxygenCobalt</string>
+    <string name="lng_author">Developed by Alexander Capehart</string>
     <!-- As in music library -->
     <string name="lng_search_library">Search your library…</string>
 
@@ -170,13 +174,13 @@
     <string name="set_lib_tabs">Library tabs</string>
     <string name="set_lib_tabs_desc">Change visibility and order of library tabs</string>
     <string name="set_hide_collaborators">Hide collaborators</string>
-    <string name="set_hide_collaborators_desc">Only show artists that are directly credited on an album</string>
+    <string name="set_hide_collaborators_desc">Only show artists that are directly credited on an album (works best on well-tagged libraries)</string>
     <string name="set_cover_mode">Album covers</string>
     <string name="set_cover_mode_off">Off</string>
     <string name="set_cover_mode_media_store">Fast</string>
     <string name="set_cover_mode_quality">High quality</string>
     <string name="set_round_mode">Round mode</string>
-    <string name="set_round_mode_desc">Enable rounded corners on additional UI elements (Requires album covers to be rounded)</string>
+    <string name="set_round_mode_desc">Enable rounded corners on additional UI elements (requires album covers to be rounded)</string>
     <string name="set_bar_action">Custom playback bar action</string>
     <!-- Skip to next (song) -->
     <string name="set_bar_action_next">Skip to next</string>
@@ -200,9 +204,10 @@
     <string name="set_library_song_playback_mode">When playing from the library</string>
     <string name="set_detail_song_playback_mode">When playing from item details</string>
     <string name="set_playback_mode_none">Play from shown item</string>
-    <string name="set_playback_mode_all">Play from all songs</string>
+    <string name="set_playback_mode_songs">Play from all songs</string>
     <string name="set_playback_mode_album">Play from album</string>
     <string name="set_playback_mode_artist">Play from artist</string>
+    <string name="set_playback_mode_genre">Play from genre</string>
     <string name="set_keep_shuffle">Remember shuffle</string>
     <string name="set_keep_shuffle_desc">Keep shuffle on when playing a new song</string>
     <string name="set_rewind_prev">Rewind before skipping back</string>
@@ -217,10 +222,13 @@
     <string name="set_restore_desc">Restore the previously saved playback state (if any)</string>
 
     <string name="set_content">Content</string>
-    <string name="set_reindex">Reload music</string>
-    <string name="set_reindex_desc">May wipe playback state</string>
+    <string name="set_reindex">Refresh music</string>
+    <string name="set_reindex_desc">Reload the music library, using cached tags when possible</string>
+    <!-- Different from "Reload music" -->
+    <string name="set_rescan">Rescan music</string>
+    <string name="set_rescan_desc">Clear the tag cache and fully reload the music library (slower, but more complete)</string>
     <string name="set_observing">Automatic reloading</string>
-    <string name="set_observing_desc">Reload your music library whenever it changes (Requires persistent notification)</string>
+    <string name="set_observing_desc">Reload the music library whenever it changes (requires persistent notification)</string>
     <string name="set_dirs">Music folders</string>
     <string name="set_dirs_desc">Manage where music should be loaded from</string>
     <!-- As in the mode to be used with the music folders setting -->
@@ -251,7 +259,11 @@
     <string name="err_no_dirs">No folders</string>
     <string name="err_bad_dir">This folder is not supported</string>
     <!-- Referring to playback state -->
-    <string name="err_did_not_restore">No state could be restored</string>
+    <string name="err_did_not_restore">Unable to restore state</string>
+    <!-- Referring to playback state -->
+    <string name="err_did_not_wipe">Unable to clear state</string>
+    <!-- Referring to playback state -->
+    <string name="err_did_not_save">Unable to save state</string>
 
     <!-- Description Namespace | Accessibility Strings -->
 
@@ -331,6 +343,15 @@
     <!-- Format Namespace | Value formatting/plurals -->
     <eat-comment />
 
+    <!--
+    Comma (,) separator should be localized (For example, "、" in japanese).
+    Do not use "and" or equivalents.
+    -->
+    <string name="fmt_list">%1$s, %2$s</string>
+
+    <!-- As in an amount of items that are selected -->
+    <string name="fmt_selected">%d Selected</string>
+
     <!-- As in "Disc 1", "Disc 2", etc. in a set -->
     <string name="fmt_disc_no">Disc %d</string>
 
@@ -349,7 +370,7 @@
     <string name="fmt_lib_album_count">Albums loaded: %d</string>
     <string name="fmt_lib_artist_count">Artists loaded: %d</string>
     <string name="fmt_lib_genre_count">Genres loaded: %d</string>
-    <!-- AS in the total duration of all songs in the music library -->
+    <!-- As in the total duration of all songs in the music library -->
     <string name="fmt_lib_total_duration">Total duration: %s</string>
 
     <plurals name="fmt_song_count">
@@ -360,5 +381,10 @@
     <plurals name="fmt_album_count">
         <item quantity="one">%d album</item>
         <item quantity="other">%d albums</item>
+    </plurals>
+
+    <plurals name="fmt_artist_count">
+        <item quantity="one">%d artist</item>
+        <item quantity="other">%d artists</item>
     </plurals>
 </resources>

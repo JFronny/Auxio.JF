@@ -20,23 +20,24 @@ package org.oxycblt.auxio.ui.accent
 import android.os.Bundle
 import android.view.LayoutInflater
 import androidx.appcompat.app.AlertDialog
+import androidx.recyclerview.widget.RecyclerView
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogAccentBinding
+import org.oxycblt.auxio.list.ClickableListListener
+import org.oxycblt.auxio.list.Item
 import org.oxycblt.auxio.settings.Settings
-import org.oxycblt.auxio.ui.fragment.ViewBindingDialogFragment
-import org.oxycblt.auxio.util.context
+import org.oxycblt.auxio.ui.ViewBindingDialogFragment
 import org.oxycblt.auxio.util.logD
 import org.oxycblt.auxio.util.unlikelyToBeNull
 
 /**
- * Dialog responsible for showing the list of accents to select.
- * @author OxygenCobalt
+ * A [ViewBindingDialogFragment] that allows the user to configure the current [Accent].
+ * @author Alexander Capehart (OxygenCobalt)
  */
 class AccentCustomizeDialog :
-    ViewBindingDialogFragment<DialogAccentBinding>(), AccentAdapter.Listener {
+    ViewBindingDialogFragment<DialogAccentBinding>(), ClickableListListener {
     private var accentAdapter = AccentAdapter(this)
-    private val settings: Settings by lifecycleObject { binding -> Settings(binding.context) }
 
     override fun onCreateBinding(inflater: LayoutInflater) = DialogAccentBinding.inflate(inflater)
 
@@ -44,12 +45,15 @@ class AccentCustomizeDialog :
         builder
             .setTitle(R.string.set_accent)
             .setPositiveButton(R.string.lbl_ok) { _, _ ->
-                if (accentAdapter.selectedAccent != settings.accent) {
-                    logD("Applying new accent")
-                    settings.accent = unlikelyToBeNull(accentAdapter.selectedAccent)
-                    requireActivity().recreate()
+                val settings = Settings(requireContext())
+                if (accentAdapter.selectedAccent == settings.accent) {
+                    // Nothing to do.
+                    return@setPositiveButton
                 }
 
+                logD("Applying new accent")
+                settings.accent = unlikelyToBeNull(accentAdapter.selectedAccent)
+                requireActivity().recreate()
                 dismiss()
             }
             .setNegativeButton(R.string.lbl_cancel, null)
@@ -57,17 +61,18 @@ class AccentCustomizeDialog :
 
     override fun onBindingCreated(binding: DialogAccentBinding, savedInstanceState: Bundle?) {
         binding.accentRecycler.adapter = accentAdapter
+        // Restore a previous pending accent if possible, otherwise select the current setting.
         accentAdapter.setSelectedAccent(
             if (savedInstanceState != null) {
                 Accent.from(savedInstanceState.getInt(KEY_PENDING_ACCENT))
             } else {
-                settings.accent
-            }
-        )
+                Settings(requireContext()).accent
+            })
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
+        // Save any pending accent configuration to restore if this dialog is re-created.
         outState.putInt(KEY_PENDING_ACCENT, unlikelyToBeNull(accentAdapter.selectedAccent).index)
     }
 
@@ -75,11 +80,12 @@ class AccentCustomizeDialog :
         binding.accentRecycler.adapter = null
     }
 
-    override fun onAccentSelected(accent: Accent) {
-        accentAdapter.setSelectedAccent(accent)
+    override fun onClick(item: Item, viewHolder: RecyclerView.ViewHolder) {
+        check(item is Accent) { "Unexpected datatype: ${item::class.java}" }
+        accentAdapter.setSelectedAccent(item)
     }
 
-    companion object {
+    private companion object {
         const val KEY_PENDING_ACCENT = BuildConfig.APPLICATION_ID + ".key.PENDING_ACCENT"
     }
 }

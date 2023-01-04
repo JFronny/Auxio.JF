@@ -36,28 +36,30 @@ import org.oxycblt.auxio.util.logD
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 
 /**
- * The single [AppCompatActivity] for Auxio.
+ * Auxio's single [AppCompatActivity].
  *
  * TODO: Add error screens
  *
  * TODO: Custom language support
  *
- * TODO: Add multi-select
+ * TODO: Use proper material attributes (Not the weird dimen attributes I currently have)
  *
- * @author OxygenCobalt
+ * TODO: Migrate to material animation system
+ *
+ * TODO: Unit testing
+ *
+ * @author Alexander Capehart (OxygenCobalt)
  */
 class MainActivity : AppCompatActivity() {
     private val playbackModel: PlaybackViewModel by androidViewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setupTheme()
-
+        // Inflate the views after setting up the theme so that the theme attributes are applied.
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupEdgeToEdge(binding.root)
-
         logD("Activity created")
     }
 
@@ -68,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         startService(Intent(this, PlaybackService::class.java))
 
         if (!startIntentAction(intent)) {
+            // No intent action to do, just restore the previously saved state.
             playbackModel.startAction(InternalPlayer.Action.RestoreState)
         }
     }
@@ -77,40 +80,12 @@ class MainActivity : AppCompatActivity() {
         startIntentAction(intent)
     }
 
-    private fun startIntentAction(intent: Intent?): Boolean {
-        if (intent == null) {
-            return false
-        }
-
-        if (intent.getBooleanExtra(KEY_INTENT_USED, false)) {
-            // Don't commit the action, but also return that the intent was applied.
-            // This is because onStart can run multiple times, and thus we really don't
-            // want to return false and override the original delayed action with a
-            // RestoreState action.
-            return true
-        }
-
-        intent.putExtra(KEY_INTENT_USED, true)
-
-        val action =
-            when (intent.action) {
-                Intent.ACTION_VIEW -> InternalPlayer.Action.Open(intent.data ?: return false)
-                AuxioApp.INTENT_KEY_SHORTCUT_SHUFFLE -> InternalPlayer.Action.ShuffleAll
-                else -> return false
-            }
-
-        playbackModel.startAction(action)
-
-        return true
-    }
-
     private fun setupTheme() {
         val settings = Settings(this)
-
+        // Apply the theme configuration.
         AppCompatDelegate.setDefaultNightMode(settings.theme)
-
-        // The black theme has a completely separate set of styles since style attributes cannot
-        // be modified at runtime.
+        // Apply the color scheme. The black theme requires it's own set of themes since
+        // it's not possible to modify the themes at run-time.
         if (isNight && settings.useBlackTheme) {
             logD("Applying black theme [accent ${settings.accent}]")
             setTheme(settings.accent.blackTheme)
@@ -122,15 +97,48 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupEdgeToEdge(contentView: View) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-
         contentView.setOnApplyWindowInsetsListener { view, insets ->
+            // Automatically inset the view to the left/right, as component support for
+            // these insets are highly lacking.
             val bars = insets.systemBarInsetsCompat
             view.updatePadding(left = bars.left, right = bars.right)
             insets
         }
     }
 
-    companion object {
-        private const val KEY_INTENT_USED = BuildConfig.APPLICATION_ID + ".key.FILE_INTENT_USED"
+    /**
+     * Transform an [Intent] given to [MainActivity] into a [InternalPlayer.Action] that can be used
+     * in the playback system.
+     * @param intent The (new) [Intent] given to this [MainActivity], or null if there is no intent.
+     * @return true If the analogous [InternalPlayer.Action] to the given [Intent] was started,
+     * false otherwise.
+     */
+    private fun startIntentAction(intent: Intent?): Boolean {
+        if (intent == null) {
+            // Nothing to do.
+            return false
+        }
+
+        if (intent.getBooleanExtra(KEY_INTENT_USED, false)) {
+            // Don't commit the action, but also return that the intent was applied.
+            // This is because onStart can run multiple times, and thus we really don't
+            // want to return false and override the original delayed action with a
+            // RestoreState action.
+            return true
+        }
+        intent.putExtra(KEY_INTENT_USED, true)
+
+        val action =
+            when (intent.action) {
+                Intent.ACTION_VIEW -> InternalPlayer.Action.Open(intent.data ?: return false)
+                AuxioApp.INTENT_KEY_SHORTCUT_SHUFFLE -> InternalPlayer.Action.ShuffleAll
+                else -> return false
+            }
+        playbackModel.startAction(action)
+        return true
+    }
+
+    private companion object {
+        const val KEY_INTENT_USED = BuildConfig.APPLICATION_ID + ".key.FILE_INTENT_USED"
     }
 }

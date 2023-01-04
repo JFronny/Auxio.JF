@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.0.1
+
+#### What's New
+- Added support for album date ranges (ex. 2010 - 2013)
+
+#### What's Improved
+- Formalized whitespace handling
+- Value lists are now properly localized
+- Queue no longer primarily shows previous songs when opened
+- Added reset button to ReplayGain pre-amp configuration dialog 
+
+#### What's Changed
+- R128 ReplayGain tags are now only used when playing OPUS files
+
+#### What's Fixed
+- Fixed mangled multi-value ID3v2 tags when UTF-16 is used
+- Fixed crash when playing certain MP3 files
+- Detail UI will no longer crash if the music library is unavailable
+
+#### Dev/Meta
+- Add CI workflow
+
 ## 3.0.0
 
 #### What's New
@@ -10,11 +32,13 @@
 	- Added setting to hide "collaborator" artists
 - Upgraded music ID management:
 	- Added support for MusicBrainz IDs (MBIDs)
-	- Use the more unique MD5 hash of metadata when MBIDs can't be used
+	- Use a more unique hash of metadata when MBIDs can't be used
+- Genres now display a list of artists
 - Added toggle to load non-music (Such as podcasts)
 - Music loader now caches parsed metadata for faster load times
 - Redesigned icon
 	- Added animated splash screen on Android 12+
+- Added support for MP4 ReplayGain (`----`) atoms
 
 #### What's Improved
 - Sorting now takes accented characters into account
@@ -23,26 +47,36 @@
 - Reshuffling the queue will no longer drop any songs you have added/removed
 - Allowed light/dark theme to be customized on Android 12+
 - All information now scrolls in the playback view
-- A month is now shown for song/album dates when available (Android O+ only)
+- A month is now shown for song/album dates when available
+- Added loading indicator to song properties view
+- List items have been made more compact
 
 #### What's Fixed
 - Fixed issue where the scroll popup would not display correctly in landscape mode [#230]
-- Fixed issue where the playback progress would continue in the notification even if
+- Fixed issue where the playback progress would continue in the notification when
 audio focus was lost
-- Fixed issue where the app would crash if a song menu in the genre UI was opened
 - Fixed issue where the artist name would not be shown in the OS audio switcher menu
 - Fixed issue where the search view would not update if the library changed
 - Fixed visual bug with transitions in the black theme
+- Fixed toolbar flickering when fast-scrolling in the home UI
 
 #### What's Changed
-- Ignore MediaStore tags is now on by default
-- Removed the "Play from genre" option in the library/detail playback mode settings+
+- Ignore MediaStore tags is now Auxio's default and unchangeable behavior. The option has been removed.
 - "Use alternate notification action" is now "Custom notification action"
 - "Show covers" and "Ignore MediaStore covers" have been unified into "Album covers"
 
 #### Dev/Meta
+- Created new wiki with more information about app functionality
+- Switched to issue forms
 - Completed migration to reactive playback system
 - Refactor music backends into a unified chain of extractors
+- Add bluetooth connection receiver (No functionality in app yet)
+
+## 2.6.4
+
+#### What's Fixed
+- Fixed issue where invalid position values would crash the app
+- Fixed issue where opening the song menu in the genre view would crash the app
 
 ## 2.6.3
 

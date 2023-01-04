@@ -23,13 +23,17 @@ import androidx.core.app.NotificationCompat
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.IntegerTable
 import org.oxycblt.auxio.R
-import org.oxycblt.auxio.ui.system.ServiceNotification
+import org.oxycblt.auxio.service.ForegroundServiceNotification
 import org.oxycblt.auxio.util.logD
 import org.oxycblt.auxio.util.newMainPendingIntent
 
-/** The notification responsible for showing the indexer state. */
+/**
+ * A dynamic [ForegroundServiceNotification] that shows the current music loading state.
+ * @param context [Context] required to create the notification.
+ * @author Alexander Capehart (OxygenCobalt)
+ */
 class IndexingNotification(private val context: Context) :
-    ServiceNotification(context, INDEXER_CHANNEL) {
+    ForegroundServiceNotification(context, INDEXER_CHANNEL) {
     private var lastUpdateTime = -1L
 
     init {
@@ -47,9 +51,17 @@ class IndexingNotification(private val context: Context) :
     override val code: Int
         get() = IntegerTable.INDEXER_NOTIFICATION_CODE
 
+    /**
+     * Update this notification with the new music loading state.
+     * @param indexing The new music loading state to display in the notification.
+     * @return true if the notification updated, false otherwise
+     */
     fun updateIndexingState(indexing: Indexer.Indexing): Boolean {
         when (indexing) {
             is Indexer.Indexing.Indeterminate -> {
+                // Indeterminate state, use a vaguer description and in-determinate progress.
+                // These events are not very frequent, and thus we don't need to safeguard
+                // against rate limiting.
                 logD("Updating state to $indexing")
                 lastUpdateTime = -1
                 setContentText(context.getString(R.string.lng_indexing))
@@ -57,18 +69,17 @@ class IndexingNotification(private val context: Context) :
                 return true
             }
             is Indexer.Indexing.Songs -> {
+                // Determinate state, show an active progress meter. Since these updates arrive
+                // highly rapidly, only update every 1.5 seconds to prevent notification rate
+                // limiting.
                 val now = SystemClock.elapsedRealtime()
                 if (lastUpdateTime > -1 && (now - lastUpdateTime) < 1500) {
                     return false
                 }
-
                 lastUpdateTime = SystemClock.elapsedRealtime()
-
-                // Only update the notification every 1.5s to prevent rate-limiting.
                 logD("Updating state to $indexing")
                 setContentText(
-                    context.getString(R.string.fmt_indexing, indexing.current, indexing.total)
-                )
+                    context.getString(R.string.fmt_indexing, indexing.current, indexing.total))
                 setProgress(indexing.total, indexing.current, false)
                 return true
             }
@@ -76,8 +87,13 @@ class IndexingNotification(private val context: Context) :
     }
 }
 
-/** The notification responsible for showing the indexer state. */
-class ObservingNotification(context: Context) : ServiceNotification(context, INDEXER_CHANNEL) {
+/**
+ * A static [ForegroundServiceNotification] that signals to the user that the app is currently
+ * monitoring the music library for changes.
+ * @author Alexander Capehart (OxygenCobalt)
+ */
+class ObservingNotification(context: Context) :
+    ForegroundServiceNotification(context, INDEXER_CHANNEL) {
     init {
         setSmallIcon(R.drawable.ic_indexer_24)
         setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -93,8 +109,7 @@ class ObservingNotification(context: Context) : ServiceNotification(context, IND
         get() = IntegerTable.INDEXER_NOTIFICATION_CODE
 }
 
+/** Notification channel shared by [IndexingNotification] and [ObservingNotification]. */
 private val INDEXER_CHANNEL =
-    ServiceNotification.ChannelInfo(
-        id = BuildConfig.APPLICATION_ID + ".channel.INDEXER",
-        nameRes = R.string.lbl_indexer
-    )
+    ForegroundServiceNotification.ChannelInfo(
+        id = BuildConfig.APPLICATION_ID + ".channel.INDEXER", nameRes = R.string.lbl_indexer)

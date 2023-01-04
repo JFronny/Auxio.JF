@@ -2,7 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <!-- Info namespace | App labels -->
     <string name="info_app_desc">مشغل موسيقى بسيط ومعقول لنظام الاندرويد.</string>
-    <string name="lng_playback">عرض وتحكم بشتغيل الموسيقى</string>
+    <string name="lng_widget">عرض وتحكم بشتغيل الموسيقى</string>
     <!-- Label Namespace | Static Labels -->
     <string name="lbl_retry">إعادة المحاولة</string>
     <string name="lbl_grant">منح</string>
@@ -23,7 +23,7 @@
     <string name="lbl_playback">يعمل الآن</string>
     <string name="lbl_play">تشغيل</string>
     <string name="lbl_shuffle">خلط</string>
-    <string name="set_playback_mode_all">تشغيل من جميع الاغاني</string>
+    <string name="set_playback_mode_songs">تشغيل من جميع الاغاني</string>
     <string name="set_playback_mode_album">تشغيل من البوم</string>
     <string name="set_playback_mode_artist">تشغيل من فنان</string>
     <string name="lbl_queue">طابور</string>
@@ -39,7 +39,6 @@
     <string name="lbl_about">حول</string>
     <string name="lbl_version">الإصدار</string>
     <string name="lbl_code">عرض على جيتهاب</string>
-    <string name="lbl_faq">اسئلة وأجوبة</string>
     <string name="lbl_licenses">التراخيص</string>
     <string name="lng_author">تمت برمجة التطبيق من قبل OxygenCobalt</string>
     <!-- Settings namespace | Settings-related labels -->

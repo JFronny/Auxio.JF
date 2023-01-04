@@ -20,41 +20,60 @@ package org.oxycblt.auxio.music.picker
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import org.oxycblt.auxio.music.Album
-import org.oxycblt.auxio.music.Music
-import org.oxycblt.auxio.music.MusicStore
-import org.oxycblt.auxio.music.Song
+import org.oxycblt.auxio.music.*
 import org.oxycblt.auxio.util.unlikelyToBeNull
 
 /**
- * A small ViewModel holding and updating the current song being shown in the picker UI.
- * @author OxygenCobalt
+ * a [ViewModel] that manages the current music picker state. Make it so that the dialogs just
+ * contain the music themselves and then exit if the library changes.
+ * @author Alexander Capehart (OxygenCobalt)
  */
-class PickerViewModel : ViewModel(), MusicStore.Callback {
+class PickerViewModel : ViewModel(), MusicStore.Listener {
     private val musicStore = MusicStore.getInstance()
 
-    private var _currentItem = MutableStateFlow<Music?>(null)
-    val currentItem: StateFlow<Music?> = _currentItem
+    private val _currentItem = MutableStateFlow<Music?>(null)
+    /** The current item whose artists should be shown in the picker. Null if there is no item. */
+    val currentItem: StateFlow<Music?>
+        get() = _currentItem
 
-    fun setSongUid(uid: Music.UID) {
-        if (_currentItem.value?.uid == uid) return
-        val library = unlikelyToBeNull(musicStore.library)
-        val item = requireNotNull(library.find(uid)) { "Invalid song id provided" }
-        _currentItem.value = item
+    private val _artistChoices = MutableStateFlow<List<Artist>>(listOf())
+    /** The current [Artist] choices. Empty if no item is shown in the picker. */
+    val artistChoices: StateFlow<List<Artist>>
+        get() = _artistChoices
+
+    private val _genreChoices = MutableStateFlow<List<Genre>>(listOf())
+    /** The current [Genre] choices. Empty if no item is shown in the picker. */
+    val genreChoices: StateFlow<List<Genre>>
+        get() = _genreChoices
+
+    override fun onCleared() {
+        musicStore.removeListener(this)
     }
 
     override fun onLibraryChanged(library: MusicStore.Library?) {
         if (library != null) {
-            when (val item = currentItem.value) {
-                is Song -> {
-                    _currentItem.value = library.sanitize(item)
-                }
-                is Album -> {
-                    _currentItem.value = library.sanitize(item)
-                }
-                null -> {}
-                else -> error("Invalid datatype: ${item::class.java}")
+            refreshChoices()
+        }
+    }
+
+    /**
+     * Set a new [currentItem] from it's [Music.UID].
+     * @param uid The [Music.UID] of the [Song] to update to.
+     */
+    fun setItemUid(uid: Music.UID) {
+        val library = unlikelyToBeNull(musicStore.library)
+        _currentItem.value = library.find(uid)
+        refreshChoices()
+    }
+
+    private fun refreshChoices() {
+        when (val item = _currentItem.value) {
+            is Song -> {
+                _artistChoices.value = item.artists
+                _genreChoices.value = item.genres
             }
+            is Album -> _artistChoices.value = item.artists
+            else -> {}
         }
     }
 }

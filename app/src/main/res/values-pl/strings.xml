@@ -25,7 +25,6 @@
     <string name="lbl_about">O aplikacji</string>
     <string name="lbl_version">Wersja</string>
     <string name="lbl_code">Kod źródłowy</string>
-    <string name="lbl_faq">FAQ</string>
     <string name="lbl_licenses">Licencje</string>
     <!-- Settings namespace | Settings-related labels -->
     <string name="set_title">Ustawienia</string>
@@ -136,7 +135,7 @@
     <string name="lbl_equalizer">Equalizer</string>
     <string name="lbl_size">Rozmiar</string>
     <string name="err_no_dirs">Brak folderów</string>
-    <string name="set_playback_mode_all">Odtwórz wszystkie utwory</string>
+    <string name="set_playback_mode_songs">Odtwórz wszystkie utwory</string>
     <string name="set_playback_mode_album">Odtwórz album</string>
     <string name="set_headset_autoplay_desc">Zacznij odtawrzanie po podłączeniu słuchawek (może nie działać na wszystkich urządzeniach)</string>
     <string name="set_reindex">Załaduj ponownie bibliotekę</string>
@@ -215,7 +214,7 @@
     <string name="desc_clear_search">Wyczyść zapytanie wyszukiwania</string>
     <string name="err_did_not_restore">Nie można przywrócić stanu odtwarzania</string>
     <string name="desc_genre_image">Okładka gatunku %s</string>
-    <string name="lng_playback">Wyświetlanie oraz kontrolowanie odtwarzania muzyki</string>
+    <string name="lng_widget">Wyświetlanie oraz kontrolowanie odtwarzania muzyki</string>
     <string name="set_pre_amp_with">Regulacja w oparciu o tagi</string>
     <string name="set_pre_amp_without">Regulacja bez tagów</string>
     <string name="set_pre_amp_desc">Wzmocnienie dźwięku przez preamplifier jest nakładane na wcześniej ustawione wzmocnienie podczas odtwarzania</string>

@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2023 Auxio Project
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
 package org.oxycblt.auxio.music.system
 
 import android.content.Context
@@ -5,13 +22,13 @@ import android.media.MediaScannerConnection
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import org.oxycblt.auxio.util.logD
-import org.oxycblt.auxio.util.logI
 import java.io.File
 import java.io.IOException
 import java.util.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import org.oxycblt.auxio.util.logD
+import org.oxycblt.auxio.util.logI
 
 class SDReIndex(val root: File, val context: Context) {
     private val toProcess: MutableSet<File> = TreeSet()
@@ -23,8 +40,7 @@ class SDReIndex(val root: File, val context: Context) {
         logI("Starting")
         try {
             recursiveAddFiles(root)
-        } catch (_: IOException) {
-        }
+        } catch (_: IOException) {}
         var dbSuccess = false
         var numRetries = 0
         while (!dbSuccess && (numRetries < 3)) {
@@ -42,26 +58,28 @@ class SDReIndex(val root: File, val context: Context) {
         startMediaScanner()
     }
 
-    private fun dbOneTry() = context.contentResolver.query(
-        MediaStore.Files.getContentUri("external"),
-        arrayOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.DATE_MODIFIED),
-        null,
-        null,
-        null
-    )!!.use { cursor ->
-        val dataColumn = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
-        val modifiedColumn = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
-        while (cursor.moveToNext()) {
-            try {
-                val file = File(cursor.getString(dataColumn)).canonicalFile
-                if ((!file.exists() || file.lastModified() / 1000 > cursor.getLong(modifiedColumn))
-                    && shouldScan(file, true))
-                    toProcess.add(file)
-                else toProcess.remove(file)
-            } catch (_: IOException) {
+    private fun dbOneTry() =
+        context.contentResolver
+            .query(
+                MediaStore.Files.getContentUri("external"),
+                arrayOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.DATE_MODIFIED),
+                null,
+                null,
+                null)!!
+            .use { cursor ->
+                val dataColumn = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                val modifiedColumn = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
+                while (cursor.moveToNext()) {
+                    try {
+                        val file = File(cursor.getString(dataColumn)).canonicalFile
+                        if ((!file.exists() ||
+                            file.lastModified() / 1000 > cursor.getLong(modifiedColumn)) &&
+                            shouldScan(file, true))
+                            toProcess.add(file)
+                        else toProcess.remove(file)
+                    } catch (_: IOException) {}
+                }
             }
-        }
-    }
 
     private fun recursiveAddFiles(f: File) {
         if (!shouldScan(f, false)) return
@@ -88,7 +106,7 @@ class SDReIndex(val root: File, val context: Context) {
     }
 
     private suspend fun startMediaScanner() {
-        if (pathNames.isEmpty()) scannerEnded();
+        if (pathNames.isEmpty()) scannerEnded()
         else {
             suspendNop { continuation ->
                 MediaScannerConnection.scanFile(
@@ -98,7 +116,8 @@ class SDReIndex(val root: File, val context: Context) {
                 ) { path, _ ->
                     logD("Scanning $path")
                     handler.post {
-                        if (lastGoodProcessed + 1 < pathNames.size && pathNames[lastGoodProcessed + 1] == path) {
+                        if (lastGoodProcessed + 1 < pathNames.size &&
+                            pathNames[lastGoodProcessed + 1] == path) {
                             lastGoodProcessed++
                         } else {
                             val newIndex = pathNames.indexOf(path)
@@ -123,11 +142,7 @@ class SDReIndex(val root: File, val context: Context) {
         }
 
         suspend inline fun suspendNop(crossinline block: (() -> Unit) -> Unit) {
-            suspendCoroutine<Any?> { continuation ->
-                block {
-                    continuation.resume(null)
-                }
-            }
+            suspendCoroutine<Any?> { continuation -> block { continuation.resume(null) } }
         }
     }
 }

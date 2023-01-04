@@ -18,38 +18,38 @@
 package org.oxycblt.auxio.playback.replaygain
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.google.android.exoplayer2.C
+import com.google.android.exoplayer2.Format
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.audio.AudioProcessor
 import com.google.android.exoplayer2.audio.BaseAudioProcessor
-import com.google.android.exoplayer2.metadata.Metadata
-import com.google.android.exoplayer2.metadata.id3.TextInformationFrame
-import com.google.android.exoplayer2.metadata.vorbis.VorbisComment
+import com.google.android.exoplayer2.util.MimeTypes
+import java.nio.ByteBuffer
+import kotlin.math.pow
+import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.Album
+import org.oxycblt.auxio.music.extractor.Tags
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.auxio.settings.Settings
 import org.oxycblt.auxio.util.logD
-import org.oxycblt.auxio.util.unlikelyToBeNull
-import java.nio.ByteBuffer
-import kotlin.math.pow
 
 /**
  * An [AudioProcessor] that handles ReplayGain values and their amplification of the audio stream.
  * Instead of leveraging the volume attribute like other implementations, this system manipulates
  * the bitstream itself to modify the volume, which allows the use of positive ReplayGain values.
  *
- * Note that you must still give it a [Metadata] instance for it to function, which should be done
- * when the active track changes.
+ * Note: This audio processor must be attached to a respective [Player] instance as a
+ * [Player.Listener] to function properly.
  *
- * @author OxygenCobalt
- *
- * TODO: Convert to a low-level audio processor capable of handling any kind of PCM data.
+ * @author Alexander Capehart (OxygenCobalt)
  */
-class ReplayGainAudioProcessor(context: Context) : BaseAudioProcessor() {
-    private data class Gain(val track: Float, val album: Float)
-    private data class GainTag(val key: String, val value: Float)
-
+class ReplayGainAudioProcessor(private val context: Context) :
+    BaseAudioProcessor(), Player.Listener, SharedPreferences.OnSharedPreferenceChangeListener {
     private val playbackManager = PlaybackStateManager.getInstance()
     private val settings = Settings(context)
+    private var lastFormat: Format? = null
 
     private var volume = 1f
         set(value) {
@@ -58,18 +58,69 @@ class ReplayGainAudioProcessor(context: Context) : BaseAudioProcessor() {
             flush()
         }
 
+    /**
+     * Add this instance to the components required for it to function correctly.
+     * @param player The [Player] to attach to. Should already have this instance as an audio
+     * processor.
+     */
+    fun addToListeners(player: Player) {
+        player.addListener(this)
+        settings.addListener(this)
+    }
+
+    /**
+     * Remove this instance from the components required for it to function correctly.
+     * @param player The [Player] to detach from. Should already have this instance as an audio
+     * processor.
+     */
+    fun releaseFromListeners(player: Player) {
+        player.removeListener(this)
+        settings.removeListener(this)
+    }
+
+    // --- OVERRIDES ---
+
+    override fun onTracksChanged(tracks: Tracks) {
+        super.onTracksChanged(tracks)
+        // Try to find the currently playing track so we can update the ReplayGain adjustment
+        // based on it.
+        for (group in tracks.groups) {
+            if (group.isSelected) {
+                for (i in 0 until group.length) {
+                    if (group.isTrackSelected(i)) {
+                        applyReplayGain(group.getTrackFormat(i))
+                        return
+                    }
+                }
+            }
+        }
+        // Nothing selected, apply nothing
+        applyReplayGain(null)
+    }
+
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+        if (key == context.getString(R.string.set_key_replay_gain) ||
+            key == context.getString(R.string.set_key_pre_amp_with) ||
+            key == context.getString(R.string.set_key_pre_amp_without)) {
+            // ReplayGain changed, we need to set it up again.
+            applyReplayGain(lastFormat)
+        }
+    }
+
     // --- REPLAYGAIN PARSING ---
 
     /**
-     * Updates the rough volume adjustment for [Metadata] with ReplayGain tags. This is tangentially
-     * based off Vanilla Music's implementation, but has diverged to a significant extent.
+     * Updates the volume adjustment based on the given [Format].
+     * @param format The [Format] of the currently playing track, or null if nothing is playing.
      */
-    fun applyReplayGain(metadata: Metadata?) {
-        val gain = metadata?.let(::parseReplayGain)
+    private fun applyReplayGain(format: Format?) {
+        lastFormat = format
+        val gain = parseReplayGain(format ?: return)
         val preAmp = settings.replayGainPreAmp
 
         val adjust =
             if (gain != null) {
+                logD("Found ReplayGain adjustment $gain")
                 // ReplayGain is configurable, so determine what to do based off of the mode.
                 val useAlbumGain =
                     when (settings.replayGainMode) {
@@ -111,90 +162,58 @@ class ReplayGainAudioProcessor(context: Context) : BaseAudioProcessor() {
         volume = 10f.pow(adjust / 20f)
     }
 
-    private fun parseReplayGain(metadata: Metadata): Gain? {
+    /**
+     * Parse ReplayGain information from the given [Format].
+     * @param format The [Format] to parse.
+     * @return A [Adjustment] adjustment, or null if there were no valid adjustments.
+     */
+    private fun parseReplayGain(format: Format): Adjustment? {
+        val tags = Tags(format.metadata ?: return null)
         var trackGain = 0f
         var albumGain = 0f
-        var found = false
 
-        val tags = mutableListOf<GainTag>()
-
-        for (i in 0 until metadata.length()) {
-            val entry = metadata.get(i)
-
-            val key: String?
-            val value: String
-
-            when (entry) {
-                // ID3v2 text information frame, usually these are formatted in lowercase
-                // (like "replaygain_track_gain"), but can also be uppercase. Make sure that
-                // capitalization is consistent before continuing.
-                is TextInformationFrame -> {
-                    key = entry.description?.uppercase()
-                    value = entry.values[0]
-                }
-                // Vorbis comment. These are nearly always uppercase, so a check for such is
-                // skipped.
-                is VorbisComment -> {
-                    key = entry.key
-                    value = entry.value
-                }
-                else -> continue
-            }
-
-            if (key in REPLAY_GAIN_TAGS) {
-                tags.add(GainTag(unlikelyToBeNull(key), parseReplayGainFloat(value)))
-            }
+        // Most ReplayGain tags are formatted as a simple decibel adjustment in a custom
+        // replaygain_*_gain tag.
+        if (format.sampleMimeType != MimeTypes.AUDIO_OPUS) {
+            tags.id3v2["TXXX:$TAG_RG_TRACK_GAIN"]
+                ?.run { first().parseReplayGainAdjustment() }
+                ?.let { trackGain = it }
+            tags.id3v2["TXXX:$TAG_RG_ALBUM_GAIN"]
+                ?.run { first().parseReplayGainAdjustment() }
+                ?.let { albumGain = it }
+            tags.vorbis[TAG_RG_ALBUM_GAIN]
+                ?.run { first().parseReplayGainAdjustment() }
+                ?.let { trackGain = it }
+            tags.vorbis[TAG_RG_TRACK_GAIN]
+                ?.run { first().parseReplayGainAdjustment() }
+                ?.let { albumGain = it }
+        } else {
+            // Opus has it's own "r128_*_gain" ReplayGain specification, which requires dividing the
+            // adjustment by 256 to get the gain. This is used alongside the base adjustment
+            // intrinsic to the format to create the normalized adjustment. That base adjustment
+            // is already handled by the media  framework, so we just need to apply the more
+            // specific adjustments.
+            tags.vorbis[TAG_R128_TRACK_GAIN]
+                ?.run { first().parseReplayGainAdjustment() }
+                ?.let { trackGain = it / 256f }
+            tags.vorbis[TAG_R128_ALBUM_GAIN]
+                ?.run { first().parseReplayGainAdjustment() }
+                ?.let { albumGain = it / 256f }
         }
 
-        // Case 1: Normal ReplayGain, most commonly found on MPEG files.
-        tags
-            .findLast { tag -> tag.key == RG_TRACK }
-            ?.let { tag ->
-                trackGain = tag.value
-                found = true
-            }
-
-        tags
-            .findLast { tag -> tag.key == RG_ALBUM }
-            ?.let { tag ->
-                albumGain = tag.value
-                found = true
-            }
-
-        // Case 2: R128 ReplayGain, most commonly found on FLAC files and other lossless
-        // encodings to increase precision in volume adjustments.
-        // While technically there is the R128 base gain in Opus files, that is automatically
-        // applied by the media framework [which ExoPlayer relies on]. The only reason we would
-        // want to read it is to zero previous ReplayGain values for being invalid, however there
-        // is no demand to fix that edge case right now.
-        tags
-            .findLast { tag -> tag.key == R128_TRACK }
-            ?.let { tag ->
-                trackGain += tag.value / 256f
-                found = true
-            }
-
-        tags
-            .findLast { tag -> tag.key == R128_ALBUM }
-            ?.let { tag ->
-                albumGain += tag.value / 256f
-                found = true
-            }
-
-        return if (found) {
-            Gain(trackGain, albumGain)
+        return if (trackGain != 0f || albumGain != 0f) {
+            Adjustment(trackGain, albumGain)
         } else {
             null
         }
     }
 
-    private fun parseReplayGainFloat(raw: String) =
-        // Grok a float from a ReplayGain tag by removing everything that is not 0-9, , or -.
-        try {
-            raw.replace(Regex("[^\\d.-]"), "").toFloat()
-        } catch (e: Exception) {
-            0f
-        }
+    /**
+     * Parse a ReplayGain adjustment into a float value.
+     * @return A parsed adjustment float, or null if the adjustment had invalid formatting.
+     */
+    private fun String.parseReplayGainAdjustment() =
+        replace(REPLAYGAIN_ADJUSTMENT_FILTER_REGEX, "").toFloatOrNull()
 
     // --- AUDIO PROCESSOR IMPLEMENTATION ---
 
@@ -204,6 +223,8 @@ class ReplayGainAudioProcessor(context: Context) : BaseAudioProcessor() {
         if (inputAudioFormat.encoding == C.ENCODING_PCM_16BIT) {
             // AudioProcessor is only provided 16-bit PCM audio data, so that's the only
             // encoding we need to check for.
+            // TODO: Convert to a low-level audio processor capable of handling any kind of
+            //  PCM data, once ExoPlayer can support it.
             return inputAudioFormat
         }
 
@@ -237,27 +258,39 @@ class ReplayGainAudioProcessor(context: Context) : BaseAudioProcessor() {
         buffer.flip()
     }
 
-    // Normally, ByteBuffer endianness is determined by object state, which is possibly
-    // the most java thing I have ever heard. Instead of mutating that state and accidentally
-    // breaking downstream parsers of audio data, we have our own methods to always parse a
-    // little-endian value.
-
-    /** Always get a little-endian short value from a [ByteBuffer] */
+    /**
+     * Always read a little-endian [Short] from the [ByteBuffer] at the given index.
+     * @param at The index to read the [Short] from.
+     */
     private fun ByteBuffer.getLeShort(at: Int) =
         get(at + 1).toInt().shl(8).or(get(at).toInt().and(0xFF)).toShort()
 
-    /** Always place a little-endian short value into a [ByteBuffer]. */
+    /**
+     * Always write a little-endian [Short] at the end of the [ByteBuffer].
+     * @param short The [Short] to write.
+     */
     private fun ByteBuffer.putLeShort(short: Short) {
         put(short.toByte())
         put(short.toInt().shr(8).toByte())
     }
 
-    companion object {
-        private const val RG_TRACK = "REPLAYGAIN_TRACK_GAIN"
-        private const val RG_ALBUM = "REPLAYGAIN_ALBUM_GAIN"
-        private const val R128_TRACK = "R128_TRACK_GAIN"
-        private const val R128_ALBUM = "R128_ALBUM_GAIN"
+    /**
+     * The resolved ReplayGain adjustment for a file.
+     * @param track The track adjustment (in dB), or 0 if it is not present.
+     * @param album The album adjustment (in dB), or 0 if it is not present.
+     */
+    private data class Adjustment(val track: Float, val album: Float)
 
-        private val REPLAY_GAIN_TAGS = arrayOf(RG_TRACK, RG_ALBUM, R128_ALBUM, R128_TRACK)
+    private companion object {
+        const val TAG_RG_TRACK_GAIN = "replaygain_track_gain"
+        const val TAG_RG_ALBUM_GAIN = "replaygain_album_gain"
+        const val TAG_R128_TRACK_GAIN = "r128_track_gain"
+        const val TAG_R128_ALBUM_GAIN = "r128_album_gain"
+
+        /**
+         * Matches non-float information from ReplayGain adjustments. Derived from vanilla music:
+         * https://github.com/vanilla-music/vanilla
+         */
+        val REPLAYGAIN_ADJUSTMENT_FILTER_REGEX = Regex("[^\\d.-]")
     }
 }

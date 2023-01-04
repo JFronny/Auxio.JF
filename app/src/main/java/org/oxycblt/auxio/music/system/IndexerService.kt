@@ -19,6 +19,7 @@ package org.oxycblt.auxio.music.system
 
 import android.app.Service
 import android.content.Intent
+import android.content.SharedPreferences
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.IBinder
@@ -27,68 +28,68 @@ import android.os.PowerManager
 import android.provider.MediaStore
 import android.widget.Toast
 import coil.imageLoader
+import java.lang.Runnable
 import kotlinx.coroutines.*
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicStore
+import org.oxycblt.auxio.music.filesystem.contentResolverSafe
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
+import org.oxycblt.auxio.service.ForegroundManager
 import org.oxycblt.auxio.settings.Settings
-import org.oxycblt.auxio.ui.system.ForegroundManager
-import org.oxycblt.auxio.util.contentResolverSafe
 import org.oxycblt.auxio.util.getSystemServiceCompat
 import org.oxycblt.auxio.util.logD
-import java.lang.Runnable
 
 /**
- * A [Service] that handles the music loading process.
+ * A [Service] that manages the background music loading process.
  *
- * Loading music is actually somewhat time-consuming, to the point where it's likely better suited
- * to a service that is less likely to be killed by the OS.
+ * Loading music is a time-consuming process that would likely be killed by the system before it
+ * could complete if ran anywhere else. So, this [Service] manages the music loading process as an
+ * instance of [Indexer.Controller].
  *
- * You could probably do the same using WorkManager and the GooberQueue library or whatever, but the
- * boilerplate you skip is not worth the insanity of androidx.
+ * This [Service] also handles automatic rescanning, as that is a similarly long-running background
+ * operation that would be unsuitable elsewhere in the app.
  *
- * @author OxygenCobalt
+ * TODO: Unify with PlaybackService as part of the service independence project
+ *
+ * @author Alexander Capehart (OxygenCobalt)
  */
-class IndexerService : Service(), Indexer.Controller, Settings.Callback {
+class IndexerService :
+    Service(), Indexer.Controller, SharedPreferences.OnSharedPreferenceChangeListener {
     private val indexer = Indexer.getInstance()
     private val musicStore = MusicStore.getInstance()
-
+    private val playbackManager = PlaybackStateManager.getInstance()
     private val serviceJob = Job()
     private val indexScope = CoroutineScope(serviceJob + Dispatchers.IO)
     private var currentIndexJob: Job? = null
-
-    private val playbackManager = PlaybackStateManager.getInstance()
-
     private lateinit var foregroundManager: ForegroundManager
     private lateinit var indexingNotification: IndexingNotification
     private lateinit var observingNotification: ObservingNotification
-
-    private lateinit var settings: Settings
     private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var indexerContentObserver: SystemContentObserver
+    private lateinit var settings: Settings
 
     override fun onCreate() {
         super.onCreate()
-
+        // Initialize the core service components first.
         foregroundManager = ForegroundManager(this)
         indexingNotification = IndexingNotification(this)
         observingNotification = ObservingNotification(this)
-
         wakeLock =
             getSystemServiceCompat(PowerManager::class)
                 .newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK,
-                    BuildConfig.APPLICATION_ID + ":IndexerService"
-                )
-
-        settings = Settings(this, this)
+                    PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":IndexerService")
+        // Initialize any listener-dependent components last as we wouldn't want a listener race
+        // condition to cause us to load music before we were fully initialize.
         indexerContentObserver = SystemContentObserver()
-
+        settings = Settings(this)
+        settings.addListener(this)
         indexer.registerController(this)
+        // An indeterminate indexer and a missing library implies we are extremely early
+        // in app initialization so start loading music.
         if (musicStore.library == null && indexer.isIndeterminate) {
             logD("No library present and no previous response, indexing music now")
-            onStartIndexing(false)
+            onStartIndexing(true, false)
         }
 
         logD("Service created.")
@@ -100,78 +101,72 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
 
     override fun onDestroy() {
         super.onDestroy()
-
+        // De-initialize core service components first.
         foregroundManager.release()
         wakeLock.releaseSafe()
-
-        // De-initialize the components first to prevent stray reloading events
-        settings.release()
+        // Then cancel the listener-dependent components to ensure that stray reloading
+        // events will not occur.
         indexerContentObserver.release()
+        settings.removeListener(this)
         indexer.unregisterController(this)
-
-        // Then cancel the other components.
-        indexer.cancelLast()
+        // Then cancel any remaining music loading jobs.
         serviceJob.cancel()
+        indexer.reset()
     }
 
     // --- CONTROLLER CALLBACKS ---
 
-    override fun onStartIndexing(reindex: Boolean) {
+    override fun onStartIndexing(withCache: Boolean, reindex: Boolean) {
         if (indexer.isIndexing) {
+            // Cancel the previous music loading job.
             currentIndexJob?.cancel()
-            indexer.cancelLast()
+            indexer.reset()
         }
 
-        currentIndexJob = indexScope.launch {
-            // Reload the media store
-            if (reindex) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@IndexerService, "Reindexing", Toast.LENGTH_SHORT).show()
+        currentIndexJob =
+            indexScope.launch {
+                // Reload the media store
+                if (reindex) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@IndexerService, "Reindexing", Toast.LENGTH_SHORT).show()
+                    }
+                    SDReIndex.reindex(this@IndexerService)
+                    indexer.index(this@IndexerService, false)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@IndexerService, "Finished Indexing", Toast.LENGTH_LONG)
+                            .show()
+                    }
+                } else {
+                    // Start a new music loading job on a co-routine.
+                    indexer.index(this@IndexerService, withCache)
                 }
-                SDReIndex.reindex(this@IndexerService)
-                indexer.index(this@IndexerService)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@IndexerService, "Finished Indexing", Toast.LENGTH_LONG).show()
-                }
-            } else {
-                indexer.index(this@IndexerService)
             }
-        }
     }
 
     override fun onIndexerStateChanged(state: Indexer.State?) {
         when (state) {
+            is Indexer.State.Indexing -> updateActiveSession(state.indexing)
             is Indexer.State.Complete -> {
-                if (state.response is Indexer.Response.Ok &&
-                    state.response.library != musicStore.library
-                ) {
+                val newLibrary = state.result.getOrNull()
+                if (newLibrary != null && newLibrary != musicStore.library) {
                     logD("Applying new library")
-
-                    val newLibrary = state.response.library
-
+                    // We only care if the newly-loaded library is going to replace a previously
+                    // loaded library.
                     if (musicStore.library != null) {
-                        // This is a new library to replace an existing one.
-
-                        // Wipe possibly-invalidated album covers
+                        // Wipe possibly-invalidated outdated covers
                         imageLoader.memoryCache?.clear()
-
                         // Clear invalid models from PlaybackStateManager. This is not connected
-                        // to a callback as it is bad practice for a shared object to attach to
-                        // the callback system of another.
+                        // to a listener as it is bad practice for a shared object to attach to
+                        // the listener system of another.
                         playbackManager.sanitize(newLibrary)
                     }
-
-                    musicStore.updateLibrary(newLibrary)
+                    // Forward the new library to MusicStore to continue the update process.
+                    musicStore.library = newLibrary
                 }
-
                 // On errors, while we would want to show a notification that displays the
-                // error, in practice that comes into conflict with the upcoming Android 13
-                // notification permission, and there is no point implementing permission
-                // on-boarding for such when it will only be used for this.
+                // error, that requires the Android 13 notification permission, which is not
+                // handled right now.
                 updateIdleSession()
-            }
-            is Indexer.State.Indexing -> {
-                updateActiveSession(state.indexing)
             }
             null -> {
                 // Null is the indeterminate state that occurs on app startup or after
@@ -184,21 +179,29 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
 
     // --- INTERNAL ---
 
+    /**
+     * Update the current state to "Active", in which the service signals that music loading is
+     * on-going.
+     * @param state The current music loading state.
+     */
     private fun updateActiveSession(state: Indexer.Indexing) {
         // When loading, we want to enter the foreground state so that android does
         // not shut off the loading process. Note that while we will always post the
         // notification when initially starting, we will not update the notification
-        // unless it indicates that we have changed it.
+        // unless it indicates that it has changed.
         val changed = indexingNotification.updateIndexingState(state)
         if (!foregroundManager.tryStartForeground(indexingNotification) && changed) {
             logD("Notification changed, re-posting notification")
             indexingNotification.post()
         }
-
         // Make sure we can keep the CPU on while loading music
         wakeLock.acquireSafe()
     }
 
+    /**
+     * Update the current state to "Idle", in which it either does nothing or signals that it's
+     * currently monitoring the music library for changes.
+     */
     private fun updateIdleSession() {
         if (settings.shouldBeObserving) {
             // There are a few reasons why we stay in the foreground with automatic rescanning:
@@ -207,27 +210,34 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
             // we can go foreground later.
             // 2. If a non-foreground service is killed, the app will probably still be alive,
             // and thus the music library will not be updated at all.
+            // TODO: Assuming I unify this with PlaybackService, it's possible that I won't need
+            //  this anymore, or at least I only have to use it when the app task is not removed.
             if (!foregroundManager.tryStartForeground(observingNotification)) {
                 observingNotification.post()
             }
         } else {
+            // Not observing and done loading, exit foreground.
             foregroundManager.tryStopForeground()
         }
-
         // Release our wake lock (if we were using it)
         wakeLock.releaseSafe()
     }
 
+    /** Utility to safely acquire a [PowerManager.WakeLock] without crashes/inefficiency. */
     private fun PowerManager.WakeLock.acquireSafe() {
+        // Avoid unnecessary acquire calls.
         if (!wakeLock.isHeld) {
             logD("Acquiring wake lock")
-
-            // We always drop the wakelock eventually. Timeout is not needed.
-            @Suppress("WakelockTimeout") acquire()
+            // Time out after a minute, which is the average music loading time for a medium-sized
+            // library. If this runs out, we will re-request the lock, and if music loading is
+            // shorter than the timeout, it will be released early.
+            acquire(WAKELOCK_TIMEOUT_MS)
         }
     }
 
+    /** Utility to safely release a [PowerManager.WakeLock] without crashes/inefficiency. */
     private fun PowerManager.WakeLock.releaseSafe() {
+        // Avoid unnecessary release calls.
         if (wakeLock.isHeld) {
             logD("Releasing wake lock")
             release()
@@ -236,13 +246,18 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
 
     // --- SETTING CALLBACKS ---
 
-    override fun onSettingChanged(key: String) {
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
         when (key) {
+            // Hook changes in music settings to a new music loading event.
             getString(R.string.set_key_exclude_non_music),
             getString(R.string.set_key_music_dirs),
             getString(R.string.set_key_music_dirs_include),
-            getString(R.string.set_key_separators) -> onStartIndexing(false)
+            getString(R.string.set_key_separators) -> onStartIndexing(true, false)
             getString(R.string.set_key_observing) -> {
+                // Make sure we don't override the service state with the observing
+                // notification if we were actively loading when the automatic rescanning
+                // setting changed. In such a case, the state will still be updated when
+                // the music loading process ends.
                 if (!indexer.isIndexing) {
                     updateIdleSession()
                 }
@@ -250,38 +265,46 @@ class IndexerService : Service(), Indexer.Controller, Settings.Callback {
         }
     }
 
-    /** Internal content observer intended to work with the automatic reloading system. */
-    private inner class SystemContentObserver(
-        private val handler: Handler = Handler(Looper.getMainLooper())
-    ) : ContentObserver(handler), Runnable {
+    /**
+     * A [ContentObserver] that observes the [MediaStore] music database for changes, a behavior
+     * known to the user as automatic rescanning. The active (and not passive) nature of observing
+     * the database is what requires [IndexerService] to stay foreground when this is enabled.
+     */
+    private inner class SystemContentObserver :
+        ContentObserver(Handler(Looper.getMainLooper())), Runnable {
+        private val handler = Handler(Looper.getMainLooper())
+
         init {
             contentResolverSafe.registerContentObserver(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                true,
-                this
-            )
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, this)
         }
 
+        /**
+         * Release this instance, preventing it from further observing the database and cancelling
+         * any pending update events.
+         */
         fun release() {
+            handler.removeCallbacks(this)
             contentResolverSafe.unregisterContentObserver(this)
         }
 
         override fun onChange(selfChange: Boolean) {
             // Batch rapid-fire updates to the library into a single call to run after 500ms
             handler.removeCallbacks(this)
-            handler.postDelayed(this, REINDEX_DELAY)
+            handler.postDelayed(this, REINDEX_DELAY_MS)
         }
 
         override fun run() {
             // Check here if we should even start a reindex. This is much less bug-prone than
             // registering and de-registering this component as this setting changes.
             if (settings.shouldBeObserving) {
-                onStartIndexing(false)
+                onStartIndexing(true, false)
             }
         }
     }
 
-    companion object {
-        const val REINDEX_DELAY = 500L
+    private companion object {
+        const val WAKELOCK_TIMEOUT_MS = 60 * 1000L
+        const val REINDEX_DELAY_MS = 500L
     }
 }

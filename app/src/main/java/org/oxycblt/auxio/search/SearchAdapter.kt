@@ -20,27 +20,24 @@ package org.oxycblt.auxio.search
 import android.view.ViewGroup
 import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.RecyclerView
+import org.oxycblt.auxio.list.*
+import org.oxycblt.auxio.list.recycler.*
 import org.oxycblt.auxio.music.Album
 import org.oxycblt.auxio.music.Artist
 import org.oxycblt.auxio.music.Genre
 import org.oxycblt.auxio.music.Song
-import org.oxycblt.auxio.ui.recycler.AlbumViewHolder
-import org.oxycblt.auxio.ui.recycler.ArtistViewHolder
-import org.oxycblt.auxio.ui.recycler.AuxioRecyclerView
-import org.oxycblt.auxio.ui.recycler.GenreViewHolder
-import org.oxycblt.auxio.ui.recycler.Header
-import org.oxycblt.auxio.ui.recycler.HeaderViewHolder
-import org.oxycblt.auxio.ui.recycler.IndicatorAdapter
-import org.oxycblt.auxio.ui.recycler.Item
-import org.oxycblt.auxio.ui.recycler.MenuItemListener
-import org.oxycblt.auxio.ui.recycler.SimpleItemCallback
-import org.oxycblt.auxio.ui.recycler.SongViewHolder
 
-class SearchAdapter(private val listener: MenuItemListener) :
-    IndicatorAdapter<RecyclerView.ViewHolder>(), AuxioRecyclerView.SpanSizeLookup {
-    private val differ = AsyncListDiffer(this, DIFFER)
+/**
+ * An adapter that displays search results.
+ * @param listener An [SelectableListListener] to bind interactions to.
+ * @author Alexander Capehart (OxygenCobalt)
+ */
+class SearchAdapter(private val listener: SelectableListListener) :
+    SelectionIndicatorAdapter<RecyclerView.ViewHolder>(), AuxioRecyclerView.SpanSizeLookup {
+    private val differ = AsyncListDiffer(this, DIFF_CALLBACK)
 
-    override fun getItemCount() = differ.currentList.size
+    override val currentList: List<Item>
+        get() = differ.currentList
 
     override fun getItemViewType(position: Int) =
         when (differ.currentList[position]) {
@@ -54,54 +51,52 @@ class SearchAdapter(private val listener: MenuItemListener) :
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
         when (viewType) {
-            SongViewHolder.VIEW_TYPE -> SongViewHolder.new(parent)
-            AlbumViewHolder.VIEW_TYPE -> AlbumViewHolder.new(parent)
-            ArtistViewHolder.VIEW_TYPE -> ArtistViewHolder.new(parent)
-            GenreViewHolder.VIEW_TYPE -> GenreViewHolder.new(parent)
-            HeaderViewHolder.VIEW_TYPE -> HeaderViewHolder.new(parent)
+            SongViewHolder.VIEW_TYPE -> SongViewHolder.from(parent)
+            AlbumViewHolder.VIEW_TYPE -> AlbumViewHolder.from(parent)
+            ArtistViewHolder.VIEW_TYPE -> ArtistViewHolder.from(parent)
+            GenreViewHolder.VIEW_TYPE -> GenreViewHolder.from(parent)
+            HeaderViewHolder.VIEW_TYPE -> HeaderViewHolder.from(parent)
             else -> error("Invalid item type $viewType")
         }
 
-    override fun onBindViewHolder(
-        holder: RecyclerView.ViewHolder,
-        position: Int,
-        payloads: List<Any>
-    ) {
-        super.onBindViewHolder(holder, position, payloads)
-
-        if (payloads.isEmpty()) {
-            when (val item = differ.currentList[position]) {
-                is Song -> (holder as SongViewHolder).bind(item, listener)
-                is Album -> (holder as AlbumViewHolder).bind(item, listener)
-                is Artist -> (holder as ArtistViewHolder).bind(item, listener)
-                is Genre -> (holder as GenreViewHolder).bind(item, listener)
-                is Header -> (holder as HeaderViewHolder).bind(item)
-            }
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = differ.currentList[position]) {
+            is Song -> (holder as SongViewHolder).bind(item, listener)
+            is Album -> (holder as AlbumViewHolder).bind(item, listener)
+            is Artist -> (holder as ArtistViewHolder).bind(item, listener)
+            is Genre -> (holder as GenreViewHolder).bind(item, listener)
+            is Header -> (holder as HeaderViewHolder).bind(item)
         }
     }
 
     override fun isItemFullWidth(position: Int) = differ.currentList[position] is Header
 
-    override val currentList: List<Item>
-        get() = differ.currentList
+    /**
+     * Asynchronously update the list with new items. Assumes that the list only contains supported
+     * data..
+     * @param newList The new [Item]s for the adapter to display.
+     * @param callback A block called when the asynchronous update is completed.
+     */
+    fun submitList(newList: List<Item>, callback: () -> Unit) {
+        differ.submitList(newList, callback)
+    }
 
-    fun submitList(list: List<Item>, callback: () -> Unit) = differ.submitList(list, callback)
-
-    companion object {
-        private val DIFFER =
+    private companion object {
+        /** A comparator that can be used with DiffUtil. */
+        val DIFF_CALLBACK =
             object : SimpleItemCallback<Item>() {
                 override fun areContentsTheSame(oldItem: Item, newItem: Item) =
                     when {
                         oldItem is Song && newItem is Song ->
-                            SongViewHolder.DIFFER.areContentsTheSame(oldItem, newItem)
+                            SongViewHolder.DIFF_CALLBACK.areContentsTheSame(oldItem, newItem)
                         oldItem is Album && newItem is Album ->
-                            AlbumViewHolder.DIFFER.areContentsTheSame(oldItem, newItem)
+                            AlbumViewHolder.DIFF_CALLBACK.areContentsTheSame(oldItem, newItem)
                         oldItem is Artist && newItem is Artist ->
-                            ArtistViewHolder.DIFFER.areContentsTheSame(oldItem, newItem)
+                            ArtistViewHolder.DIFF_CALLBACK.areContentsTheSame(oldItem, newItem)
                         oldItem is Genre && newItem is Genre ->
-                            GenreViewHolder.DIFFER.areContentsTheSame(oldItem, newItem)
+                            GenreViewHolder.DIFF_CALLBACK.areContentsTheSame(oldItem, newItem)
                         oldItem is Header && newItem is Header ->
-                            HeaderViewHolder.DIFFER.areContentsTheSame(oldItem, newItem)
+                            HeaderViewHolder.DIFF_CALLBACK.areContentsTheSame(oldItem, newItem)
                         else -> false
                     }
             }

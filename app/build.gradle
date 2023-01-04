@@ -12,12 +12,10 @@ android {
 
     defaultConfig {
         applicationId "io.gitlab.jfronny.auxio"
-        versionName "2.6.3"
-        versionCode 22
+        versionName "3.0.1"
+        versionCode 25
 
         minSdk 21
-        // API 33 is still busted, waiting until the XML element issue is fixed
-        // noinspection OldTargetApi
         targetSdk 33
 
         buildFeatures {
@@ -26,7 +24,6 @@ android {
     }
 
     // ExoPlayer, AndroidX, and Material Components all need Java 8 to compile.
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -56,7 +53,6 @@ android {
     }
 }
 
-
 dependencies {
     // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
@@ -71,7 +67,7 @@ dependencies {
     implementation "androidx.appcompat:appcompat:1.4.0"
     implementation "androidx.core:core-ktx:1.9.0"
     implementation "androidx.activity:activity-ktx:1.6.1"
-    implementation "androidx.fragment:fragment-ktx:1.5.4"
+    implementation "androidx.fragment:fragment-ktx:1.5.5"
 
     // UI
     implementation "androidx.recyclerview:recyclerview:1.2.1"
@@ -100,7 +96,7 @@ dependencies {
     // Exoplayer
     // WARNING: THE EXOPLAYER VERSION MUST BE KEPT IN LOCK-STEP WITH THE PRE-BUILD SCRIPT.
     // IF NOT, VERY UNFRIENDLY BUILD FAILURES AND CRASHES MAY ENSUE.
-    implementation("com.google.android.exoplayer:exoplayer-core:2.18.1") {
+    implementation("com.google.android.exoplayer:exoplayer-core:2.18.2") {
         exclude group: "com.google.android.exoplayer", module: "exoplayer-extractor"
     }
 
@@ -111,7 +107,8 @@ dependencies {
     implementation "io.coil-kt:coil:2.1.0"
 
     // Material
-    implementation "com.google.android.material:material:1.7.0"
+    // Locked below 1.7.0-alpha03 to avoid the same ripple bug
+    implementation "com.google.android.material:material:1.7.0-alpha02"
 
     // LeakCanary
     debugImplementation "com.squareup.leakcanary:leakcanary-android:2.9.1"
@@ -120,7 +117,11 @@ dependencies {
 spotless {
     kotlin {
         target "src/**/*.kt"
-        ktlint()
+        ktfmt().dropboxStyle()
         licenseHeaderFile("NOTICE")
     }
+}
+
+afterEvaluate {
+    preDebugBuild.dependsOn spotlessApply
 }

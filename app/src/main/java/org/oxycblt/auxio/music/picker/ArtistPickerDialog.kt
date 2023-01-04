@@ -20,58 +20,46 @@ package org.oxycblt.auxio.music.picker
 import android.os.Bundle
 import android.view.LayoutInflater
 import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.RecyclerView
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogMusicPickerBinding
-import org.oxycblt.auxio.music.Album
+import org.oxycblt.auxio.list.ClickableListListener
+import org.oxycblt.auxio.list.Item
 import org.oxycblt.auxio.music.Artist
-import org.oxycblt.auxio.music.Song
-import org.oxycblt.auxio.playback.PlaybackViewModel
-import org.oxycblt.auxio.ui.NavigationViewModel
-import org.oxycblt.auxio.ui.fragment.ViewBindingDialogFragment
-import org.oxycblt.auxio.ui.recycler.Item
-import org.oxycblt.auxio.ui.recycler.ItemClickListener
-import org.oxycblt.auxio.util.androidActivityViewModels
+import org.oxycblt.auxio.ui.ViewBindingDialogFragment
 import org.oxycblt.auxio.util.collectImmediately
 
 /**
- * A dialog that shows several artist options if the result of an artist-reliant operation is
- * ambiguous.
- * @author OxygenCobalt
- *
- * TODO: Clean up the picker flow to reduce the amount of duplication I had to do.
+ * The base class for dialogs that implements common behavior across all [Artist] pickers. These are
+ * shown whenever what to do with an item's [Artist] is ambiguous, as there are multiple [Artist]'s
+ * to choose from.
+ * @author Alexander Capehart (OxygenCobalt)
  */
-class ArtistPickerDialog : ViewBindingDialogFragment<DialogMusicPickerBinding>(), ItemClickListener {
-    private val pickerModel: PickerViewModel by viewModels()
-    private val playbackModel: PlaybackViewModel by androidActivityViewModels()
-    private val navModel: NavigationViewModel by activityViewModels()
-
-    private val args: ArtistPickerDialogArgs by navArgs()
-    private val adapter = ArtistChoiceAdapter(this)
+abstract class ArtistPickerDialog :
+    ViewBindingDialogFragment<DialogMusicPickerBinding>(), ClickableListListener {
+    protected val pickerModel: PickerViewModel by viewModels()
+    // Okay to leak this since the Listener will not be called until after initialization.
+    private val artistAdapter = ArtistChoiceAdapter(@Suppress("LeakingThis") this)
 
     override fun onCreateBinding(inflater: LayoutInflater) =
         DialogMusicPickerBinding.inflate(inflater)
 
     override fun onConfigDialog(builder: AlertDialog.Builder) {
-        builder
-            .setTitle(R.string.lbl_artists)
-            .setNegativeButton(R.string.lbl_cancel, null)
+        builder.setTitle(R.string.lbl_artists).setNegativeButton(R.string.lbl_cancel, null)
     }
 
     override fun onBindingCreated(binding: DialogMusicPickerBinding, savedInstanceState: Bundle?) {
-        pickerModel.setSongUid(args.uid)
+        binding.pickerRecycler.adapter = artistAdapter
 
-        binding.pickerRecycler.adapter = adapter
-
-        collectImmediately(pickerModel.currentItem) { item ->
-            when (item) {
-                is Song -> adapter.submitList(item.artists)
-                is Album -> adapter.submitList(item.artists)
-                null -> findNavController().navigateUp()
-                else -> error("Invalid datatype: ${item::class.java}")
+        collectImmediately(pickerModel.artistChoices) { artists ->
+            if (artists.isNotEmpty()) {
+                // Make sure the artist choices align with any changes in the music library.
+                artistAdapter.submitList(artists)
+            } else {
+                // Not showing any choices, navigate up.
+                findNavController().navigateUp()
             }
         }
     }
@@ -80,16 +68,7 @@ class ArtistPickerDialog : ViewBindingDialogFragment<DialogMusicPickerBinding>()
         binding.pickerRecycler.adapter = null
     }
 
-    override fun onItemClick(item: Item) {
-        check(item is Artist) { "Unexpected datatype: ${item::class.simpleName}" }
+    override fun onClick(item: Item, viewHolder: RecyclerView.ViewHolder) {
         findNavController().navigateUp()
-        when (args.pickerMode) {
-            PickerMode.SHOW -> navModel.exploreNavigateTo(item)
-            PickerMode.PLAY -> {
-                val currentItem = pickerModel.currentItem.value
-                check(currentItem is Song) { "PickerMode.PLAY is only allowed with Songs" }
-                playbackModel.playFromArtist(currentItem, item)
-            }
-        }
     }
 }

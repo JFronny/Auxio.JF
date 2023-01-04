@@ -19,6 +19,7 @@ package org.oxycblt.auxio.playback.system
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -40,34 +41,16 @@ import org.oxycblt.auxio.settings.Settings
 import org.oxycblt.auxio.util.logD
 
 /**
- * The component managing the [MediaSessionCompat] instance, alongside the [NotificationComponent]
- *
- * MediaSession is easily one of the most poorly thought out APIs in Android. It tries to hard to be
- * hElpfUl and implement so many fundamental behaviors into a one-size-fits-all package that it only
- * ends up causing bugs and frustration. The queue system is horribly designed, the playback state
- * system has unending coherency issues, and the overstretched abstractions result in god-awful
- * performance bottlenecks and insane state bugs.
- *
- * The sheer absurdity of the hoops we have jump through to get this working in an okay manner is
- * the reason why Auxio only mirrors a saner playback state to the media session instead of relying
- * on it. I thought that Android 13 would at least try to make the state more coherent, but NOPE.
- * You still have to do a delicate dance of posting notifications and updating the session state
- * while also keeping in mind the absurd rate limiting system in place just to have a sort-of
- * coherent state. And even then it will break if you skip too much.
- *
- * @author OxygenCobalt
+ * A component that mirrors the current playback state into the [MediaSessionCompat] and
+ * [NotificationComponent].
+ * @param context [Context] required to initialize components.
+ * @param listener [Listener] to forward notification updates to.
+ * @author Alexander Capehart (OxygenCobalt)
  */
-class MediaSessionComponent(private val context: Context, private val callback: Callback) :
-    MediaSessionCompat.Callback(), PlaybackStateManager.Callback, Settings.Callback {
-    interface Callback {
-        fun onPostNotification(notification: NotificationComponent?, reason: PostingReason)
-    }
-
-    enum class PostingReason {
-        METADATA,
-        ACTIONS
-    }
-
+class MediaSessionComponent(private val context: Context, private val listener: Listener) :
+    MediaSessionCompat.Callback(),
+    PlaybackStateManager.Listener,
+    SharedPreferences.OnSharedPreferenceChangeListener {
     private val mediaSession =
         MediaSessionCompat(context, context.packageName).apply {
             isActive = true
@@ -75,32 +58,39 @@ class MediaSessionComponent(private val context: Context, private val callback: 
         }
 
     private val playbackManager = PlaybackStateManager.getInstance()
-    private val settings = Settings(context, this)
+    private val settings = Settings(context)
 
     private val notification = NotificationComponent(context, mediaSession.sessionToken)
     private val provider = BitmapProvider(context)
 
     init {
-        playbackManager.addCallback(this)
+        playbackManager.addListener(this)
         mediaSession.setCallback(this)
     }
 
+    /**
+     * Forward a system media button [Intent] to the [MediaSessionCompat].
+     * @param intent The [Intent.ACTION_MEDIA_BUTTON] [Intent] to forward.
+     */
     fun handleMediaButtonIntent(intent: Intent) {
         MediaButtonReceiver.handleIntent(mediaSession, intent)
     }
 
+    /**
+     * Release this instance, closing the [MediaSessionCompat] and preventing any further updates to
+     * the [NotificationComponent].
+     */
     fun release() {
         provider.release()
-        settings.release()
-        playbackManager.removeCallback(this)
-
+        settings.removeListener(this)
+        playbackManager.removeListener(this)
         mediaSession.apply {
             isActive = false
             release()
         }
     }
 
-    // --- PLAYBACKSTATEMANAGER CALLBACKS ---
+    // --- PLAYBACKSTATEMANAGER OVERRIDES ---
 
     override fun onIndexMoved(index: Int) {
         updateMediaMetadata(playbackManager.song, playbackManager.parent)
@@ -122,105 +112,11 @@ class MediaSessionComponent(private val context: Context, private val callback: 
         invalidateSessionState()
     }
 
-    private fun updateMediaMetadata(song: Song?, parent: MusicParent?) {
-        if (song == null) {
-            mediaSession.setMetadata(emptyMetadata)
-            callback.onPostNotification(null, PostingReason.METADATA)
-            return
-        }
-
-        // Note: We would leave the artist field null if it didn't exist and let downstream
-        // consumers handle it, but that would break the notification display.
-        val title = song.resolveName(context)
-        val artist = song.resolveArtistContents(context)
-        val builder =
-            MediaMetadataCompat.Builder()
-                .putText(MediaMetadataCompat.METADATA_KEY_TITLE, title)
-                .putText(MediaMetadataCompat.METADATA_KEY_ALBUM, song.album.resolveName(context))
-                .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
-                .putText(
-                    MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST,
-                    song.album.resolveArtistContents(context)
-                )
-                .putText(MediaMetadataCompat.METADATA_KEY_AUTHOR, artist)
-                .putText(MediaMetadataCompat.METADATA_KEY_COMPOSER, artist)
-                .putText(MediaMetadataCompat.METADATA_KEY_WRITER, artist)
-                .putText(
-                    METADATA_KEY_PARENT,
-                    parent?.resolveName(context) ?: context.getString(R.string.lbl_all_songs)
-                )
-                .putText(MediaMetadataCompat.METADATA_KEY_GENRE, song.resolveGenreContents(context))
-                .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
-                .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, artist)
-                .putText(
-                    MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION,
-                    parent?.resolveName(context) ?: context.getString(R.string.lbl_all_songs)
-                )
-                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, song.durationMs)
-
-        song.track?.let {
-            builder.putLong(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, it.toLong())
-        }
-
-        song.disc?.let {
-            builder.putLong(MediaMetadataCompat.METADATA_KEY_DISC_NUMBER, it.toLong())
-        }
-
-        song.date?.let {
-            builder.putString(MediaMetadataCompat.METADATA_KEY_DATE, it.toString())
-        }
-
-        // Cover loading is a mess. Android expects you to provide a clean, easy URI for it to
-        // leverage, but Auxio cannot do that as quality-of-life features like scaling or
-        // 1:1 cropping could not be used.
-        //
-        // Thus, we have two options to handle album art:
-        // 1. Load the bitmap, then post the notification
-        // 2. Post the notification with text metadata, then post it with the bitmap when it's
-        // loaded.
-        //
-        // Neither of these are good, but 1 is the only one that will work on all versions
-        // without the notification being eaten by rate-limiting.
-        provider.load(
-            song,
-            object : BitmapProvider.Target {
-                override fun onCompleted(bitmap: Bitmap?) {
-                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap)
-                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
-                    val metadata = builder.build()
-                    mediaSession.setMetadata(metadata)
-                    notification.updateMetadata(metadata)
-                    callback.onPostNotification(notification, PostingReason.METADATA)
-                }
-            }
-        )
-    }
-
-    private fun updateQueue(queue: List<Song>) {
-        val queueItems =
-            queue.mapIndexed { i, song ->
-                // Since we usually have to load many songs into the queue, use the MediaStore URI
-                // instead of loading a bitmap.
-                val description =
-                    MediaDescriptionCompat.Builder()
-                        .setMediaId(song.uid.toString())
-                        .setTitle(song.resolveName(context))
-                        .setSubtitle(song.resolveArtistContents(context))
-                        .setIconUri(song.album.coverUri)
-                        .setMediaUri(song.uri)
-                        .build()
-
-                MediaSessionCompat.QueueItem(description, i.toLong())
-            }
-
-        mediaSession.setQueue(queueItems)
-    }
-
     override fun onStateChanged(state: InternalPlayer.State) {
         invalidateSessionState()
         notification.updatePlaying(playbackManager.playerState.isPlaying)
         if (!provider.isBusy) {
-            callback.onPostNotification(notification, PostingReason.ACTIONS)
+            listener.onPostNotification(notification)
         }
     }
 
@@ -230,8 +126,7 @@ class MediaSessionComponent(private val context: Context, private val callback: 
                 RepeatMode.NONE -> PlaybackStateCompat.REPEAT_MODE_NONE
                 RepeatMode.TRACK -> PlaybackStateCompat.REPEAT_MODE_ONE
                 RepeatMode.ALL -> PlaybackStateCompat.REPEAT_MODE_ALL
-            }
-        )
+            })
 
         invalidateSecondaryAction()
     }
@@ -242,15 +137,14 @@ class MediaSessionComponent(private val context: Context, private val callback: 
                 PlaybackStateCompat.SHUFFLE_MODE_ALL
             } else {
                 PlaybackStateCompat.SHUFFLE_MODE_NONE
-            }
-        )
+            })
 
         invalidateSecondaryAction()
     }
 
-    // --- SETTINGSMANAGER CALLBACKS ---
+    // --- SETTINGS OVERRIDES ---
 
-    override fun onSettingChanged(key: String) {
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
         when (key) {
             context.getString(R.string.set_key_cover_mode) ->
                 updateMediaMetadata(playbackManager.song, playbackManager.parent)
@@ -258,7 +152,7 @@ class MediaSessionComponent(private val context: Context, private val callback: 
         }
     }
 
-    // --- MEDIASESSION CALLBACKS ---
+    // --- MEDIASESSION OVERRIDES ---
 
     override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
         super.onPlayFromMediaId(mediaId, extras)
@@ -286,11 +180,11 @@ class MediaSessionComponent(private val context: Context, private val callback: 
     }
 
     override fun onPlay() {
-        playbackManager.changePlaying(true)
+        playbackManager.setPlaying(true)
     }
 
     override fun onPause() {
-        playbackManager.changePlaying(false)
+        playbackManager.setPlaying(false)
     }
 
     override fun onSkipToNext() {
@@ -311,7 +205,7 @@ class MediaSessionComponent(private val context: Context, private val callback: 
 
     override fun onRewind() {
         playbackManager.rewind()
-        playbackManager.changePlaying(true)
+        playbackManager.setPlaying(true)
     }
 
     override fun onSetRepeatMode(repeatMode: Int) {
@@ -328,8 +222,7 @@ class MediaSessionComponent(private val context: Context, private val callback: 
         playbackManager.reshuffle(
             shuffleMode == PlaybackStateCompat.SHUFFLE_MODE_ALL ||
                 shuffleMode == PlaybackStateCompat.SHUFFLE_MODE_GROUP,
-            settings
-        )
+            settings)
     }
 
     override fun onSkipToQueueItem(id: Long) {
@@ -351,73 +244,178 @@ class MediaSessionComponent(private val context: Context, private val callback: 
         context.sendBroadcast(Intent(PlaybackService.ACTION_EXIT))
     }
 
-    // --- MISC ---
+    // --- INTERNAL ---
 
+    /**
+     * Upload a new [MediaMetadataCompat] based on the current playback state to the
+     * [MediaSessionCompat] and [NotificationComponent].
+     * @param song The current [Song] to create the [MediaMetadataCompat] from, or null if no [Song]
+     * is currently playing.
+     * @param parent The current [MusicParent] to create the [MediaMetadataCompat] from, or null if
+     * playback is currently occuring from all songs.
+     */
+    private fun updateMediaMetadata(song: Song?, parent: MusicParent?) {
+        if (song == null) {
+            // Nothing playing, reset the MediaSession and close the notification.
+            mediaSession.setMetadata(emptyMetadata)
+            return
+        }
+
+        // Populate MediaMetadataCompat. For efficiency, cache some fields that are re-used
+        // several times.
+        val title = song.resolveName(context)
+        val artist = song.resolveArtistContents(context)
+        val builder =
+            MediaMetadataCompat.Builder()
+                .putText(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+                .putText(MediaMetadataCompat.METADATA_KEY_ALBUM, song.album.resolveName(context))
+                // Note: We would leave the artist field null if it didn't exist and let downstream
+                // consumers handle it, but that would break the notification display.
+                .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
+                .putText(
+                    MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST,
+                    song.album.resolveArtistContents(context))
+                .putText(MediaMetadataCompat.METADATA_KEY_AUTHOR, artist)
+                .putText(MediaMetadataCompat.METADATA_KEY_COMPOSER, artist)
+                .putText(MediaMetadataCompat.METADATA_KEY_WRITER, artist)
+                .putText(
+                    METADATA_KEY_PARENT,
+                    parent?.resolveName(context) ?: context.getString(R.string.lbl_all_songs))
+                .putText(MediaMetadataCompat.METADATA_KEY_GENRE, song.resolveGenreContents(context))
+                .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
+                .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, artist)
+                .putText(
+                    MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION,
+                    parent?.resolveName(context) ?: context.getString(R.string.lbl_all_songs))
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, song.durationMs)
+        // These fields are nullable and so we must check first before adding them to the fields.
+        song.track?.let {
+            builder.putLong(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, it.toLong())
+        }
+        song.disc?.let {
+            builder.putLong(MediaMetadataCompat.METADATA_KEY_DISC_NUMBER, it.toLong())
+        }
+        song.date?.let { builder.putString(MediaMetadataCompat.METADATA_KEY_DATE, it.toString()) }
+
+        // We are normally supposed to use URIs for album art, but that removes some of the
+        // nice things we can do like square cropping or high quality covers. Instead,
+        // we load a full-size bitmap into the media session and take the performance hit.
+        provider.load(
+            song,
+            object : BitmapProvider.Target {
+                override fun onCompleted(bitmap: Bitmap?) {
+                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap)
+                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
+                    val metadata = builder.build()
+                    mediaSession.setMetadata(metadata)
+                    notification.updateMetadata(metadata)
+                    listener.onPostNotification(notification)
+                }
+            })
+    }
+
+    /**
+     * Upload a new queue to the [MediaSessionCompat].
+     * @param queue The current queue to upload.
+     */
+    private fun updateQueue(queue: List<Song>) {
+        val queueItems =
+            queue.mapIndexed { i, song ->
+                val description =
+                    MediaDescriptionCompat.Builder()
+                        // Media ID should not be the item index but rather the UID,
+                        // as it's used to request a song to be played from the queue.
+                        .setMediaId(song.uid.toString())
+                        .setTitle(song.resolveName(context))
+                        .setSubtitle(song.resolveArtistContents(context))
+                        // Since we usually have to load many songs into the queue, use the
+                        // MediaStore URI instead of loading a bitmap.
+                        .setIconUri(song.album.coverUri)
+                        .setMediaUri(song.uri)
+                        .build()
+                // Store the item index so we can then use the analogous index in the
+                // playback state.
+                MediaSessionCompat.QueueItem(description, i.toLong())
+            }
+        mediaSession.setQueue(queueItems)
+    }
+
+    /** Invalidate the current [MediaSessionCompat]'s [PlaybackStateCompat]. */
     private fun invalidateSessionState() {
         logD("Updating media session playback state")
 
-        // Note: Due to metadata updates being delayed but playback remaining ongoing, the position
-        // will be wonky until we can upload a duration. Again, this ties back to how I must
-        // aggressively batch notification updates to prevent rate-limiting.
         val state =
-            PlaybackStateCompat.Builder()
+        // InternalPlayer.State handles position/state information.
+        playbackManager.playerState
+                .intoPlaybackState(PlaybackStateCompat.Builder())
                 .setActions(ACTIONS)
+                // Active queue ID corresponds to the indices we populated prior, use them here.
                 .setActiveQueueItemId(playbackManager.index.toLong())
 
-        playbackManager.playerState.intoPlaybackState(state)
+        // Android 13+ relies on custom actions in the notification.
 
-        // Android 13+ leverages custom actions in the notification.
+        // Add the secondary action (either repeat/shuffle depending on the configuration)
+        val secondaryAction =
+            when (settings.playbackNotificationAction) {
+                ActionMode.SHUFFLE ->
+                    PlaybackStateCompat.CustomAction.Builder(
+                        PlaybackService.ACTION_INVERT_SHUFFLE,
+                        context.getString(R.string.desc_shuffle),
+                        if (playbackManager.isShuffled) {
+                            R.drawable.ic_shuffle_on_24
+                        } else {
+                            R.drawable.ic_shuffle_off_24
+                        })
+                else ->
+                    PlaybackStateCompat.CustomAction.Builder(
+                        PlaybackService.ACTION_INC_REPEAT_MODE,
+                        context.getString(R.string.desc_change_repeat),
+                        playbackManager.repeatMode.icon)
+            }
+        state.addCustomAction(secondaryAction.build())
 
-        val extraAction = when (settings.notifAction) {
-            ActionMode.SHUFFLE -> PlaybackStateCompat.CustomAction.Builder(
-                PlaybackService.ACTION_INVERT_SHUFFLE,
-                context.getString(R.string.desc_shuffle),
-                if (playbackManager.isShuffled) {
-                    R.drawable.ic_shuffle_on_24
-                } else {
-                    R.drawable.ic_shuffle_off_24
-                }
-            )
-
-            else -> PlaybackStateCompat.CustomAction.Builder(
-                PlaybackService.ACTION_INC_REPEAT_MODE,
-                context.getString(R.string.desc_change_repeat),
-                playbackManager.repeatMode.icon
-            )
-        }
-
+        // Add the exit action so the service can be closed
         val exitAction =
             PlaybackStateCompat.CustomAction.Builder(
-                PlaybackService.ACTION_EXIT,
-                context.getString(R.string.desc_exit),
-                R.drawable.ic_close_24
-            )
+                    PlaybackService.ACTION_EXIT,
+                    context.getString(R.string.desc_exit),
+                    R.drawable.ic_close_24)
                 .build()
-
-        state.addCustomAction(extraAction.build())
         state.addCustomAction(exitAction)
 
         mediaSession.setPlaybackState(state.build())
     }
 
+    /** Invalidate the "secondary" action (i.e shuffle/repeat mode). */
     private fun invalidateSecondaryAction() {
         invalidateSessionState()
 
-        when (settings.notifAction) {
+        when (settings.playbackNotificationAction) {
             ActionMode.SHUFFLE -> notification.updateShuffled(playbackManager.isShuffled)
             else -> notification.updateRepeatMode(playbackManager.repeatMode)
         }
 
         if (!provider.isBusy) {
-            callback.onPostNotification(notification, PostingReason.ACTIONS)
+            listener.onPostNotification(notification)
         }
     }
 
+    /** An interface for handling changes in the notification configuration. */
+    interface Listener {
+        /**
+         * Called when the [NotificationComponent] changes, requiring it to be re-posed.
+         * @param notification The new [NotificationComponent].
+         */
+        fun onPostNotification(notification: NotificationComponent)
+    }
+
     companion object {
+        /**
+         * An extended metadata key that stores the resolved name of the [MusicParent] that is
+         * currently being played from.
+         */
         const val METADATA_KEY_PARENT = BuildConfig.APPLICATION_ID + ".metadata.PARENT"
-
         private val emptyMetadata = MediaMetadataCompat.Builder().build()
-
         private const val ACTIONS =
             PlaybackStateCompat.ACTION_PLAY or
                 PlaybackStateCompat.ACTION_PAUSE or

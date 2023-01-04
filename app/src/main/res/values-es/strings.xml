@@ -2,7 +2,7 @@
 <resources>
     <!-- Info namespace | App labels -->
     <string name="info_app_desc">Un reproductor de música simple y racional para Android.</string>
-    <string name="lng_playback">Ver y controlar la reproducción musical</string>
+    <string name="lng_widget">Ver y controlar la reproducción musical</string>
     <!-- Label Namespace | Static Labels -->
     <string name="lbl_retry">Reintentar</string>
     <string name="lbl_grant">Permitir</string>
@@ -23,7 +23,7 @@
     <string name="lbl_playback">En reproducción</string>
     <string name="lbl_play">Reproducir</string>
     <string name="lbl_shuffle">Mezcla</string>
-    <string name="set_playback_mode_all">Reproducir todo</string>
+    <string name="set_playback_mode_songs">Reproducir todo</string>
     <string name="set_playback_mode_album">Reproducir por álbum</string>
     <string name="set_playback_mode_artist">Reproducir por artista</string>
     <string name="lbl_queue">Cola</string>
@@ -39,9 +39,8 @@
     <string name="lbl_about">Acerca de</string>
     <string name="lbl_version">Versión</string>
     <string name="lbl_code">Código fuente</string>
-    <string name="lbl_faq">Preguntas frecuentes</string>
     <string name="lbl_licenses">Licencias</string>
-    <string name="lng_author">Desarrollado por OxygenCobalt</string>
+    <string name="lng_author">Desarrollado por Alexander Capehart</string>
     <!-- Settings namespace | Settings-related labels -->
     <string name="set_title">Ajustes</string>
     <string name="set_ui">Apariencia</string>
@@ -56,7 +55,7 @@
     <string name="set_lib_tabs">Pestañas de biblioteca</string>
     <string name="set_lib_tabs_desc">Cambiar visibilidad y orden de las pestañas de la biblioteca</string>
     <string name="set_round_mode">Carátulas redondeadas</string>
-    <string name="set_round_mode_desc">Usar carátulas redondeadas para los álbumes</string>
+    <string name="set_round_mode_desc">Habilite las esquinas redondeadas en los elementos adicionales de la interfaz del usuario (requiere que las portadas de los álbumes estén redondeadas)</string>
     <string name="set_notif_action">Usar acciones de notificación alternativas</string>
     <string name="set_audio">Sonido</string>
     <string name="set_replay_gain">Estrategia de la ganancia de la repetición</string>
@@ -74,8 +73,8 @@
     <string name="set_content">Contenido</string>
     <string name="set_save_state">Guardar estado de reproducción</string>
     <string name="set_save_desc">Guardar el estado de reproduccion ahora</string>
-    <string name="set_reindex">Recargar música</string>
-    <string name="set_reindex_desc">Puede borrar el estado de reproducción</string>
+    <string name="set_reindex">Actualizar música</string>
+    <string name="set_reindex_desc">Recargar la biblioteca musical, utilizando las etiquetas en caché cuando sea posible</string>
     <!-- Error Namespace | Error Labels -->
     <string name="err_no_music">Sin música</string>
     <string name="err_index_failed">Falló la carga de música</string>
@@ -129,12 +128,10 @@
     <string name="fmt_lib_song_count">Canciones cargadas: %d</string>
     <plurals name="fmt_song_count">
         <item quantity="one">%d canción</item>
-        <item quantity="many">%d canciones</item>
         <item quantity="other">%d canciones</item>
     </plurals>
     <plurals name="fmt_album_count">
         <item quantity="one">%d álbum</item>
-        <item quantity="many">%d álbumes</item>
         <item quantity="other">%d álbumes</item>
     </plurals>
     <string name="lbl_size">Tamaño</string>
@@ -167,8 +164,8 @@
     <string name="lbl_sort_count">Número de canciones</string>
     <string name="lbl_state_restored">Estado restaurado</string>
     <string name="set_observing">Recarga automática</string>
-    <string name="set_observing_desc">Vuelva a cargar su biblioteca de música cada vez que cambie (Requiere notificación persistente)</string>
-    <string name="err_did_not_restore">No se puedo restaurar ningún estado</string>
+    <string name="set_observing_desc">Recargar la biblioteca musical cada vez que cambie (requiere una notificación persistente)</string>
+    <string name="err_did_not_restore">No es posible restaurar el estado</string>
     <string name="lng_indexing">Cargando tu librería de música…</string>
     <string name="lbl_indexing">Cargando música</string>
     <string name="lbl_observing">Monitorizando la librería de música</string>
@@ -240,7 +237,7 @@
     <string name="set_cover_mode_off">Apagado</string>
     <string name="set_bar_action_repeat">Modo de repetición</string>
     <string name="set_separators_plus">Más (+)</string>
-    <string name="set_separators_and">Ampersand (&amp;)</string>
+    <string name="set_separators_and">Y comercial (&amp;)</string>
     <string name="desc_exit">Detener la reproducción</string>
     <string name="set_exclude_non_music_desc">Ignorar archivos de audio que no sean música, como podcasts</string>
     <string name="set_separators_warning">Advertencia: El uso de esta configuración puede dar lugar a que algunas etiquetas se interpreten incorrectamente como si tuvieran varios valores. Puede resolverlo anteponiendo a los caracteres separadores no deseados una barra invertida (\\).</string>
@@ -248,6 +245,21 @@
     <string name="set_cover_mode_media_store">Rápido</string>
     <string name="set_bar_action">Acción personalizada de la barra de reproducción</string>
     <string name="set_bar_action_next">Saltar al siguiente</string>
-    <string name="set_hide_collaborators_desc">Mostrar solo los artistas que aparecen en las etiquetas de \'artista del álbum\' en tu biblioteca</string>
+    <string name="set_hide_collaborators_desc">Mostrar solo artistas que estén acreditados directamente en un álbum (funciona mejor en bibliotecas bien etiquetadas)</string>
     <string name="set_hide_collaborators">Ocultar colaboradores</string>
+    <plurals name="fmt_artist_count">
+        <item quantity="one">%d artista</item>
+        <item quantity="many">%d artistas</item>
+        <item quantity="other">%d artistas</item>
+    </plurals>
+    <string name="err_did_not_save">Imposible guardar el estado</string>
+    <string name="err_did_not_wipe">No se puede borrar el estado</string>
+    <string name="set_rescan_desc">Borrar la caché de las etiquetas y recargar completamente la biblioteca musical (más lento, pero más completo)</string>
+    <string name="set_rescan">Volver a escanear la música</string>
+    <string name="lbl_shuffle_selected">Nodo aleatorio seleccionado</string>
+    <string name="fmt_selected">%d seleccionado</string>
+    <string name="lbl_play_selected">Reproducir los seleccionados</string>
+    <string name="set_playback_mode_genre">Reproducir desde el género</string>
+    <string name="lbl_wiki">Wiki</string>
+    <string name="fmt_list">%1$s, %2$s</string>
 </resources>

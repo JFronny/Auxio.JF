@@ -179,7 +179,7 @@ class Indexer private constructor() {
     @Synchronized
     fun requestReindex(withCache: Boolean) {
         logD("Requesting reindex")
-        controller?.onStartIndexing(withCache, true)
+        controller?.onStartIndexing(withCache)
     }
 
     /**
@@ -481,7 +481,7 @@ class Indexer private constructor() {
          * still be written, but no cache entries will be loaded into the new library.
          * @see index
          */
-        fun onStartIndexing(withCache: Boolean, reindex: Boolean)
+        fun onStartIndexing(withCache: Boolean)
     }
 
     companion object {

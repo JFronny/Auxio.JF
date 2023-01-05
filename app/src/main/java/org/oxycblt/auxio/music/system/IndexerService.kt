@@ -89,7 +89,7 @@ class IndexerService :
         // in app initialization so start loading music.
         if (musicStore.library == null && indexer.isIndeterminate) {
             logD("No library present and no previous response, indexing music now")
-            onStartIndexing(true, false)
+            onStartIndexing(true)
         }
 
         logD("Service created.")
@@ -116,7 +116,7 @@ class IndexerService :
 
     // --- CONTROLLER CALLBACKS ---
 
-    override fun onStartIndexing(withCache: Boolean, reindex: Boolean) {
+    override fun onStartIndexing(withCache: Boolean) {
         if (indexer.isIndexing) {
             // Cancel the previous music loading job.
             currentIndexJob?.cancel()
@@ -126,7 +126,10 @@ class IndexerService :
         currentIndexJob =
             indexScope.launch {
                 // Reload the media store
-                if (reindex) {
+                if (withCache) {
+                    // Start a new music loading job on a co-routine.
+                    indexer.index(this@IndexerService, true)
+                } else {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@IndexerService, "Reindexing", Toast.LENGTH_SHORT).show()
                     }
@@ -136,9 +139,6 @@ class IndexerService :
                         Toast.makeText(this@IndexerService, "Finished Indexing", Toast.LENGTH_LONG)
                             .show()
                     }
-                } else {
-                    // Start a new music loading job on a co-routine.
-                    indexer.index(this@IndexerService, withCache)
                 }
             }
     }
@@ -252,7 +252,7 @@ class IndexerService :
             getString(R.string.set_key_exclude_non_music),
             getString(R.string.set_key_music_dirs),
             getString(R.string.set_key_music_dirs_include),
-            getString(R.string.set_key_separators) -> onStartIndexing(true, false)
+            getString(R.string.set_key_separators) -> onStartIndexing(true)
             getString(R.string.set_key_observing) -> {
                 // Make sure we don't override the service state with the observing
                 // notification if we were actively loading when the automatic rescanning
@@ -298,7 +298,7 @@ class IndexerService :
             // Check here if we should even start a reindex. This is much less bug-prone than
             // registering and de-registering this component as this setting changes.
             if (settings.shouldBeObserving) {
-                onStartIndexing(true, false)
+                onStartIndexing(true)
             }
         }
     }

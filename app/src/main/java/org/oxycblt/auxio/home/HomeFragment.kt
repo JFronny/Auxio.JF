@@ -48,6 +48,8 @@ import org.oxycblt.auxio.home.list.GenreListFragment
 import org.oxycblt.auxio.home.list.SongListFragment
 import org.oxycblt.auxio.list.selection.SelectionFragment
 import org.oxycblt.auxio.music.*
+import org.oxycblt.auxio.music.library.Library
+import org.oxycblt.auxio.music.library.Sort
 import org.oxycblt.auxio.music.system.Indexer
 import org.oxycblt.auxio.ui.MainNavigationAction
 import org.oxycblt.auxio.ui.NavigationViewModel
@@ -141,7 +143,7 @@ class HomeFragment :
         // --- VIEWMODEL SETUP ---
         collect(homeModel.shouldRecreate, ::handleRecreate)
         collectImmediately(homeModel.currentTabMode, ::updateCurrentTab)
-        collectImmediately(homeModel.songLists, homeModel.isFastScrolling, ::updateFab)
+        collectImmediately(homeModel.songsList, homeModel.isFastScrolling, ::updateFab)
         collectImmediately(musicModel.indexerState, ::updateIndexerState)
         collect(navModel.exploreNavigationItem, ::handleNavigation)
         collectImmediately(selectionModel.selected, ::updateSelection)
@@ -329,10 +331,7 @@ class HomeFragment :
         }
     }
 
-    private fun setupCompleteState(
-        binding: FragmentHomeBinding,
-        result: Result<MusicStore.Library>
-    ) {
+    private fun setupCompleteState(binding: FragmentHomeBinding, result: Result<Library>) {
         if (result.isSuccess) {
             logD("Received ok response")
             binding.homeFab.show()

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2022 Auxio Project
+ * MusicMode.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +22,7 @@ import org.oxycblt.auxio.IntegerTable
 
 /**
  * Represents a data configuration corresponding to a specific type of [Music],
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 enum class MusicMode {
@@ -31,10 +33,13 @@ enum class MusicMode {
     /** Configure with respect to [Artist] instances. */
     ARTISTS,
     /** Configure with respect to [Genre] instances. */
-    GENRES;
+    GENRES,
+    /** Configure with respect to [Playlist] instances. */
+    PLAYLISTS;
 
     /**
      * The integer representation of this instance.
+     *
      * @see fromIntCode
      */
     val intCode: Int
@@ -44,11 +49,13 @@ enum class MusicMode {
                 ALBUMS -> IntegerTable.MUSIC_MODE_ALBUMS
                 ARTISTS -> IntegerTable.MUSIC_MODE_ARTISTS
                 GENRES -> IntegerTable.MUSIC_MODE_GENRES
+                PLAYLISTS -> IntegerTable.MUSIC_MODE_PLAYLISTS
             }
 
     companion object {
         /**
          * Convert a [MusicMode] integer representation into an instance.
+         *
          * @param intCode An integer representation of a [MusicMode]
          * @return The corresponding [MusicMode], or null if the [MusicMode] is invalid.
          * @see MusicMode.intCode
@@ -59,6 +66,7 @@ enum class MusicMode {
                 IntegerTable.MUSIC_MODE_ALBUMS -> ALBUMS
                 IntegerTable.MUSIC_MODE_ARTISTS -> ARTISTS
                 IntegerTable.MUSIC_MODE_GENRES -> GENRES
+                IntegerTable.MUSIC_MODE_PLAYLISTS -> PLAYLISTS
                 else -> null
             }
     }

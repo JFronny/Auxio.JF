@@ -1,5 +1,37 @@
 # Changelog
 
+## dev
+
+## What's Fixed
+- Fixed inconsistent corner radius on widget cover art
+
+## What's Improved
+- Added ability to click on the playback bar to exit the queue view
+
+## 3.0.4
+
+#### What's New
+- Added support for `COMPILATION` and `ITUNESCOMPILATION` flags
+
+#### What's Improved
+- Accept `REPLAYGAIN_*` adjustment information on OPUS files alongside
+`R128_*` adjustments
+- List updates are now consistent across the app
+- Fixed jarring header update in detail view
+- Searching now ignores punctuation and trailing whitespace
+- Audio effect (equalizer) session is now broadcast when playing/pausing
+rather than on start/stop
+- Numeric names are now logically sorted (i.e 7 before 15)
+
+#### What's Fixed
+- Fixed MP4-AAC files not playing due to an accidental audio extractor
+deletion
+- Fix "format" not appearing in song properties view
+- Fix visual bugs when editing duplicate songs in the queue
+
+#### What's Changed
+- "Ignore articles when sorting" is now "Intelligent sorting"
+
 ## 3.0.3
 
 #### What's New
@@ -24,7 +56,6 @@ while selecting it.
 
 #### Dev/Meta
 - Started using dependency injection
-- Started code obsfucation
 - Only bundle audio-related extractors with ExoPlayer
 - Switched to Room for database management
 - Updated to MDC 1.8.0 alpha-01

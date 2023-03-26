@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2022 Auxio Project
+ * StyledImageView.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,22 +38,17 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.image.extractor.SquareFrameTransform
-import org.oxycblt.auxio.music.Album
-import org.oxycblt.auxio.music.Artist
-import org.oxycblt.auxio.music.Genre
-import org.oxycblt.auxio.music.Music
-import org.oxycblt.auxio.music.Song
+import org.oxycblt.auxio.music.*
 import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.util.getColorCompat
 import org.oxycblt.auxio.util.getDrawableCompat
 
 /**
  * An [AppCompatImageView] with some additional styling, including:
- *
  * - Tonal background
  * - Rounded corners based on user preferences
  * - Built-in support for binding image data or using a static icon with the same styling as
- * placeholder drawables.
+ *   placeholder drawables.
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
@@ -97,34 +93,47 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     /**
      * Bind a [Song]'s album cover to this view, also updating the content description.
+     *
      * @param song The [Song] to bind.
      */
     fun bind(song: Song) = bindImpl(song, R.drawable.ic_song_24, R.string.desc_album_cover)
 
     /**
      * Bind an [Album]'s cover to this view, also updating the content description.
+     *
      * @param album the [Album] to bind.
      */
     fun bind(album: Album) = bindImpl(album, R.drawable.ic_album_24, R.string.desc_album_cover)
 
     /**
      * Bind an [Artist]'s image to this view, also updating the content description.
+     *
      * @param artist the [Artist] to bind.
      */
     fun bind(artist: Artist) = bindImpl(artist, R.drawable.ic_artist_24, R.string.desc_artist_image)
 
     /**
      * Bind an [Genre]'s image to this view, also updating the content description.
+     *
      * @param genre the [Genre] to bind.
      */
     fun bind(genre: Genre) = bindImpl(genre, R.drawable.ic_genre_24, R.string.desc_genre_image)
 
     /**
+     * Bind a [Playlist]'s image to this view, also updating the content description.
+     *
+     * @param playlist the [Playlist] to bind.
+     */
+    fun bind(playlist: Playlist) =
+        bindImpl(playlist, R.drawable.ic_playlist_24, R.string.desc_playlist_image)
+
+    /**
      * Internally bind a [Music]'s image to this view.
+     *
      * @param music The music to find.
      * @param errorRes The error drawable resource to use if the music cannot be loaded.
      * @param descRes The content description string resource to use. The resource must have one
-     * field for the name of the [Music].
+     *   field for the name of the [Music].
      */
     private fun bindImpl(music: Music, @DrawableRes errorRes: Int, @StringRes descRes: Int) {
         val request =
@@ -144,6 +153,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     /**
      * A [Drawable] wrapper that re-styles the drawable to better align with the style of
      * [StyledImageView].
+     *
      * @param context [Context] required for initialization.
      * @param inner The [Drawable] to wrap.
      */

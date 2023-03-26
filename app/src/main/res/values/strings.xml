@@ -76,6 +76,9 @@
     <string name="lbl_genre">Genre</string>
     <string name="lbl_genres">Genres</string>
 
+    <string name="lbl_playlist">Playlist</string>
+    <string name="lbl_playlists">Playlists</string>
+
     <!-- Search for music -->
     <string name="lbl_search">Search</string>
     <!-- As in filtering to particular types of music in the search view -->
@@ -83,6 +86,7 @@
     <!-- As in to not filter -->
     <string name="lbl_filter_all">All</string>
 
+    <string name="lbl_none">None</string>
     <string name="lbl_name">Name</string>
     <string name="lbl_date">Date</string>
     <string name="lbl_duration">Duration</string>
@@ -212,8 +216,8 @@
     <string name="set_separators_plus">Plus (+)</string>
     <string name="set_separators_and">Ampersand (&amp;)</string>
     <string name="set_separators_warning">Warning: Using this setting may result in some tags being incorrectly interpreted as having multiple values. You can resolve this by prefixing unwanted separator characters with a backslash (\\).</string>
-    <string name="set_auto_sort_names">Ignore articles when sorting</string>
-    <string name="set_auto_sort_names_desc">Ignore words like \"the\" when sorting by name (works best with english-language music)</string>
+    <string name="set_intelligent_sorting">Intelligent sorting</string>
+    <string name="set_intelligent_sorting_desc">Correctly sort names that begin with numbers or words like \"the\" (works best with english-language music)</string>
     <string name="set_hide_collaborators">Hide collaborators</string>
     <string name="set_hide_collaborators_desc">Only show artists that are directly credited on an album (works best on well-tagged libraries)</string>
     <string name="set_images">Images</string>
@@ -293,6 +297,7 @@
     <string name="desc_change_repeat">Change repeat mode</string>
     <string name="desc_shuffle">Turn shuffle on or off</string>
     <string name="desc_shuffle_all">Shuffle all songs</string>
+    <string name="desc_new_playlist">Create a new playlist</string>
     <string name="desc_exit">Stop playback</string>
 
     <string name="desc_clear_queue_item">Remove this queue song</string>
@@ -307,6 +312,7 @@
     <string name="desc_album_cover">Album cover for %s</string>
     <string name="desc_artist_image">Artist image for %s</string>
     <string name="desc_genre_image">Genre image for %s</string>
+    <string name="desc_playlist_image">Playlist image for %s</string>
 
     <!-- Default Namespace | Placeholder values -->
     <eat-comment />

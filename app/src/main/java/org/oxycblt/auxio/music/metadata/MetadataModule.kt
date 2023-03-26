@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * MetadataModule.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +26,7 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 interface MetadataModule {
-    @Binds fun tagExtractor(tagExtractor: TagExtractorImpl): TagExtractor
-    @Binds fun audioInfoProvider(audioInfoProvider: AudioInfoProviderImpl): AudioInfo.Provider
+    @Binds fun tagExtractor(extractor: TagExtractorImpl): TagExtractor
+    @Binds fun tagWorkerFactory(factory: TagWorkerFactoryImpl): TagWorker.Factory
+    @Binds fun audioInfoProvider(factory: AudioInfoFactoryImpl): AudioInfo.Factory
 }

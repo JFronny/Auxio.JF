@@ -117,15 +117,13 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
+            <org.oxycblt.auxio.home.FlipFloatingActionButton
                 android:id="@+id/home_fab"
                 style="@style/Widget.Auxio.FloatingActionButton.Adaptive"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|end"
-                android:layout_margin="@dimen/spacing_medium"
-                android:contentDescription="@string/desc_shuffle_all"
-                android:src="@drawable/ic_shuffle_off_24"/>
+                android:layout_margin="@dimen/spacing_medium" />
         </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
         <com.google.android.material.bottomnavigation.BottomNavigationView

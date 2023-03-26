@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * BottomNavigationMediator.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,6 +72,10 @@ class BottomNavigationMediator(
                 MusicMode.GENRES -> {
                     icon = R.drawable.ic_genre_24
                     label = R.string.lbl_genres
+                }
+                MusicMode.PLAYLISTS -> {
+                    icon = R.drawable.ic_playlist_24
+                    label = R.string.lbl_playlists
                 }
             }
 

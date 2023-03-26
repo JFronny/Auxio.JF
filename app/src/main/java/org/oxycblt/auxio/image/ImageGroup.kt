@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2022 Auxio Project
+ * ImageGroup.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,10 +30,7 @@ import androidx.annotation.AttrRes
 import androidx.core.view.updateMarginsRelative
 import com.google.android.material.shape.MaterialShapeDrawable
 import org.oxycblt.auxio.R
-import org.oxycblt.auxio.music.Album
-import org.oxycblt.auxio.music.Artist
-import org.oxycblt.auxio.music.Genre
-import org.oxycblt.auxio.music.Song
+import org.oxycblt.auxio.music.*
 import org.oxycblt.auxio.util.getAttrColorCompat
 import org.oxycblt.auxio.util.getColorCompat
 import org.oxycblt.auxio.util.getDimenPixels
@@ -48,9 +46,9 @@ import org.oxycblt.auxio.util.getInteger
  * This class is primarily intended for list items. For other uses, [StyledImageView] is more
  * suitable.
  *
- * TODO: Rework content descriptions here
- *
  * @author Alexander Capehart (OxygenCobalt)
+ *
+ * TODO: Rework content descriptions here
  */
 class ImageGroup
 @JvmOverloads
@@ -146,6 +144,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     /**
      * Bind a [Song] to the internal [StyledImageView].
+     *
      * @param song The [Song] to bind to the view.
      * @see StyledImageView.bind
      */
@@ -153,6 +152,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     /**
      * Bind a [Album] to the internal [StyledImageView].
+     *
      * @param album The [Album] to bind to the view.
      * @see StyledImageView.bind
      */
@@ -160,6 +160,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     /**
      * Bind a [Genre] to the internal [StyledImageView].
+     *
      * @param artist The [Artist] to bind to the view.
      * @see StyledImageView.bind
      */
@@ -167,10 +168,19 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     /**
      * Bind a [Genre] to the internal [StyledImageView].
+     *
      * @param genre The [Genre] to bind to the view.
      * @see StyledImageView.bind
      */
     fun bind(genre: Genre) = innerImageView.bind(genre)
+
+    /**
+     * Bind a [Playlist]'s image to the internal [StyledImageView].
+     *
+     * @param playlist the [Playlist] to bind.
+     * @see StyledImageView.bind
+     */
+    fun bind(playlist: Playlist) = innerImageView.bind(playlist)
 
     /**
      * Whether this view should be indicated to have ongoing playback or not. See

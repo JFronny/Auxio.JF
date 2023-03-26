@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * PersistenceRepository.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +20,7 @@ package org.oxycblt.auxio.playback.persist
 
 import javax.inject.Inject
 import org.oxycblt.auxio.music.MusicParent
-import org.oxycblt.auxio.music.model.Library
+import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.playback.queue.Queue
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.auxio.util.logD
@@ -27,17 +28,16 @@ import org.oxycblt.auxio.util.logE
 
 /**
  * Manages the persisted playback state in a structured manner.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 interface PersistenceRepository {
-    /**
-     * Read the previously persisted [PlaybackStateManager.SavedState].
-     * @param library The [Library] required to de-serialize the [PlaybackStateManager.SavedState].
-     */
-    suspend fun readState(library: Library): PlaybackStateManager.SavedState?
+    /** Read the previously persisted [PlaybackStateManager.SavedState]. */
+    suspend fun readState(): PlaybackStateManager.SavedState?
 
     /**
      * Persist a new [PlaybackStateManager.SavedState].
+     *
      * @param state The [PlaybackStateManager.SavedState] to persist.
      */
     suspend fun saveState(state: PlaybackStateManager.SavedState?): Boolean
@@ -45,10 +45,14 @@ interface PersistenceRepository {
 
 class PersistenceRepositoryImpl
 @Inject
-constructor(private val playbackStateDao: PlaybackStateDao, private val queueDao: QueueDao) :
-    PersistenceRepository {
+constructor(
+    private val playbackStateDao: PlaybackStateDao,
+    private val queueDao: QueueDao,
+    private val musicRepository: MusicRepository
+) : PersistenceRepository {
 
-    override suspend fun readState(library: Library): PlaybackStateManager.SavedState? {
+    override suspend fun readState(): PlaybackStateManager.SavedState? {
+        val deviceLibrary = musicRepository.deviceLibrary ?: return null
         val playbackState: PlaybackState
         val heap: List<QueueHeapItem>
         val mapping: List<QueueMappingItem>
@@ -69,14 +73,14 @@ constructor(private val playbackStateDao: PlaybackStateDao, private val queueDao
             shuffledMapping.add(entry.shuffledIndex)
         }
 
-        val parent = playbackState.parentUid?.let { library.find<MusicParent>(it) }
+        val parent = playbackState.parentUid?.let { musicRepository.find(it) as? MusicParent }
         logD("Read playback state")
 
         return PlaybackStateManager.SavedState(
             parent = parent,
             queueState =
                 Queue.SavedState(
-                    heap.map { library.find(it.uid) },
+                    heap.map { deviceLibrary.findSong(it.uid) },
                     orderedMapping,
                     shuffledMapping,
                     playbackState.index,

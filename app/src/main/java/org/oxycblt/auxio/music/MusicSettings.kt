@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * MusicSettings.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,13 +25,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.list.Sort
-import org.oxycblt.auxio.music.storage.Directory
-import org.oxycblt.auxio.music.storage.MusicDirectories
+import org.oxycblt.auxio.music.fs.Directory
+import org.oxycblt.auxio.music.fs.MusicDirectories
 import org.oxycblt.auxio.settings.Settings
 import org.oxycblt.auxio.util.getSystemServiceCompat
 
 /**
  * User configuration specific to music system.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 interface MusicSettings : Settings<MusicSettings.Listener> {
@@ -42,8 +44,9 @@ interface MusicSettings : Settings<MusicSettings.Listener> {
     val shouldBeObserving: Boolean
     /** A [String] of characters representing the desired characters to denote multi-value tags. */
     var multiValueSeparators: String
-    /** Whether to trim english articles with song sort names. */
-    val automaticSortNames: Boolean
+    /** Whether to enable more advanced sorting by articles and numbers. */
+    val intelligentSorting: Boolean
+    // TODO: Move sort settings to list module
     /** The [Sort] mode used in [Song] lists. */
     var songSort: Sort
     /** The [Sort] mode used in [Album] lists. */
@@ -52,12 +55,16 @@ interface MusicSettings : Settings<MusicSettings.Listener> {
     var artistSort: Sort
     /** The [Sort] mode used in [Genre] lists. */
     var genreSort: Sort
+    /** The [Sort] mode used in [Playlist] lists. */
+    var playlistSort: Sort
     /** The [Sort] mode used in an [Album]'s [Song] list. */
     var albumSongSort: Sort
     /** The [Sort] mode used in an [Artist]'s [Song] list. */
     var artistSongSort: Sort
-    /** The [Sort] mode used in an [Genre]'s [Song] list. */
+    /** The [Sort] mode used in a [Genre]'s [Song] list. */
     var genreSongSort: Sort
+    /** The [Sort] mode used in a [Playlist]'s [Song] list. */
+    var playlistSongSort: Sort
 
     interface Listener {
         /** Called when a setting controlling how music is loaded has changed. */
@@ -108,7 +115,7 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext context: Context
             }
         }
 
-    override val automaticSortNames: Boolean
+    override val intelligentSorting: Boolean
         get() = sharedPreferences.getBoolean(getString(R.string.set_key_auto_sort_names), true)
 
     override var songSort: Sort
@@ -159,6 +166,17 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext context: Context
             }
         }
 
+    override var playlistSort: Sort
+        get() =
+            Sort.fromIntCode(
+                sharedPreferences.getInt(getString(R.string.set_key_playlists_sort), Int.MIN_VALUE))
+                ?: Sort(Sort.Mode.ByName, Sort.Direction.ASCENDING)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(getString(R.string.set_key_playlists_sort), value.intCode)
+                apply()
+            }
+        }
     override var albumSongSort: Sort
         get() {
             var sort =
@@ -203,6 +221,19 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext context: Context
         set(value) {
             sharedPreferences.edit {
                 putInt(getString(R.string.set_key_genre_songs_sort), value.intCode)
+                apply()
+            }
+        }
+
+    override var playlistSongSort: Sort
+        get() =
+            Sort.fromIntCode(
+                sharedPreferences.getInt(
+                    getString(R.string.set_key_playlist_songs_sort), Int.MIN_VALUE))
+                ?: Sort(Sort.Mode.ByNone, Sort.Direction.ASCENDING)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(getString(R.string.set_key_playlist_songs_sort), value.intCode)
                 apply()
             }
         }

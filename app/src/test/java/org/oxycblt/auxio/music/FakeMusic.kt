@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * FakeMusic.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,18 +20,18 @@ package org.oxycblt.auxio.music
 
 import android.content.Context
 import android.net.Uri
-import java.text.CollationKey
-import org.oxycblt.auxio.music.*
+import org.oxycblt.auxio.music.fs.MimeType
+import org.oxycblt.auxio.music.fs.Path
 import org.oxycblt.auxio.music.metadata.Date
 import org.oxycblt.auxio.music.metadata.Disc
 import org.oxycblt.auxio.music.metadata.ReleaseType
-import org.oxycblt.auxio.music.storage.MimeType
-import org.oxycblt.auxio.music.storage.Path
 
 open class FakeSong : Song {
     override val rawName: String?
         get() = throw NotImplementedError()
     override val rawSortName: String?
+        get() = throw NotImplementedError()
+    override val sortName: SortName?
         get() = throw NotImplementedError()
     override val date: Date?
         get() = throw NotImplementedError()
@@ -54,8 +55,6 @@ open class FakeSong : Song {
         get() = throw NotImplementedError()
     override val artists: List<Artist>
         get() = throw NotImplementedError()
-    override val collationKey: CollationKey?
-        get() = throw NotImplementedError()
     override val durationMs: Long
         get() = throw NotImplementedError()
     override val uid: Music.UID
@@ -71,6 +70,8 @@ open class FakeAlbum : Album {
         get() = throw NotImplementedError()
     override val rawSortName: String?
         get() = throw NotImplementedError()
+    override val sortName: SortName?
+        get() = throw NotImplementedError()
     override val coverUri: Uri
         get() = throw NotImplementedError()
     override val dateAdded: Long
@@ -80,8 +81,6 @@ open class FakeAlbum : Album {
     override val releaseType: ReleaseType
         get() = throw NotImplementedError()
     override val artists: List<Artist>
-        get() = throw NotImplementedError()
-    override val collationKey: CollationKey?
         get() = throw NotImplementedError()
     override val durationMs: Long
         get() = throw NotImplementedError()
@@ -100,13 +99,13 @@ open class FakeArtist : Artist {
         get() = throw NotImplementedError()
     override val rawSortName: String?
         get() = throw NotImplementedError()
+    override val sortName: SortName?
+        get() = throw NotImplementedError()
     override val albums: List<Album>
         get() = throw NotImplementedError()
     override val genres: List<Genre>
         get() = throw NotImplementedError()
     override val isCollaborator: Boolean
-        get() = throw NotImplementedError()
-    override val collationKey: CollationKey?
         get() = throw NotImplementedError()
     override val durationMs: Long
         get() = throw NotImplementedError()
@@ -125,11 +124,11 @@ open class FakeGenre : Genre {
         get() = throw NotImplementedError()
     override val rawSortName: String?
         get() = throw NotImplementedError()
+    override val sortName: SortName?
+        get() = throw NotImplementedError()
     override val albums: List<Album>
         get() = throw NotImplementedError()
     override val artists: List<Artist>
-        get() = throw NotImplementedError()
-    override val collationKey: CollationKey?
         get() = throw NotImplementedError()
     override val durationMs: Long
         get() = throw NotImplementedError()

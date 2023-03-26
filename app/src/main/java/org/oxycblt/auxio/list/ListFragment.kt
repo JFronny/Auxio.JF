@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2022 Auxio Project
+ * ListFragment.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +22,6 @@ import android.view.MenuItem
 import android.view.View
 import androidx.annotation.MenuRes
 import androidx.appcompat.widget.PopupMenu
-import androidx.core.internal.view.SupportMenu
 import androidx.core.view.MenuCompat
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewbinding.ViewBinding
@@ -29,13 +29,14 @@ import org.oxycblt.auxio.MainFragmentDirections
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.list.selection.SelectionFragment
 import org.oxycblt.auxio.music.*
-import org.oxycblt.auxio.ui.MainNavigationAction
-import org.oxycblt.auxio.ui.NavigationViewModel
+import org.oxycblt.auxio.navigation.MainNavigationAction
+import org.oxycblt.auxio.navigation.NavigationViewModel
 import org.oxycblt.auxio.util.logD
 import org.oxycblt.auxio.util.showToast
 
 /**
  * A Fragment containing a selectable list.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 abstract class ListFragment<in T : Music, VB : ViewBinding> :
@@ -52,11 +53,12 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
     /**
      * Called when [onClick] is called, but does not result in the item being selected. This more or
      * less corresponds to an [onClick] implementation in a non-[ListFragment].
+     *
      * @param item The [T] data of the item that was clicked.
      */
     abstract fun onRealClick(item: T)
 
-    override fun onClick(item: T, viewHolder: RecyclerView.ViewHolder) {
+    final override fun onClick(item: T, viewHolder: RecyclerView.ViewHolder) {
         if (selectionModel.selected.value.isNotEmpty()) {
             // Map clicking an item to selecting an item when items are already selected.
             selectionModel.select(item)
@@ -66,13 +68,14 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
         }
     }
 
-    override fun onSelect(item: T) {
+    final override fun onSelect(item: T) {
         selectionModel.select(item)
     }
 
     /**
      * Opens a menu in the context of a [Song]. This menu will be managed by the Fragment and closed
      * when the view is destroyed. If a menu is already opened, this call is ignored.
+     *
      * @param anchor The [View] to anchor the menu to.
      * @param menuRes The resource of the menu to load.
      * @param song The [Song] to create the menu for.
@@ -111,6 +114,7 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
     /**
      * Opens a menu in the context of a [Album]. This menu will be managed by the Fragment and
      * closed when the view is destroyed. If a menu is already opened, this call is ignored.
+     *
      * @param anchor The [View] to anchor the menu to.
      * @param menuRes The resource of the menu to load.
      * @param album The [Album] to create the menu for.
@@ -147,6 +151,7 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
     /**
      * Opens a menu in the context of a [Artist]. This menu will be managed by the Fragment and
      * closed when the view is destroyed. If a menu is already opened, this call is ignored.
+     *
      * @param anchor The [View] to anchor the menu to.
      * @param menuRes The resource of the menu to load.
      * @param artist The [Artist] to create the menu for.
@@ -180,6 +185,7 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
     /**
      * Opens a menu in the context of a [Genre]. This menu will be managed by the Fragment and
      * closed when the view is destroyed. If a menu is already opened, this call is ignored.
+     *
      * @param anchor The [View] to anchor the menu to.
      * @param menuRes The resource of the menu to load.
      * @param genre The [Genre] to create the menu for.
@@ -210,6 +216,40 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
         }
     }
 
+    /**
+     * Opens a menu in the context of a [Playlist]. This menu will be managed by the Fragment and
+     * closed when the view is destroyed. If a menu is already opened, this call is ignored.
+     *
+     * @param anchor The [View] to anchor the menu to.
+     * @param menuRes The resource of the menu to load.
+     * @param playlist The [Playlist] to create the menu for.
+     */
+    protected fun openMusicMenu(anchor: View, @MenuRes menuRes: Int, playlist: Playlist) {
+        logD("Launching new playlist menu: ${playlist.rawName}")
+
+        openMusicMenuImpl(anchor, menuRes) {
+            when (it.itemId) {
+                R.id.action_play -> {
+                    playbackModel.play(playlist)
+                }
+                R.id.action_shuffle -> {
+                    playbackModel.shuffle(playlist)
+                }
+                R.id.action_play_next -> {
+                    playbackModel.playNext(playlist)
+                    requireContext().showToast(R.string.lng_queue_added)
+                }
+                R.id.action_queue_add -> {
+                    playbackModel.addToQueue(playlist)
+                    requireContext().showToast(R.string.lng_queue_added)
+                }
+                else -> {
+                    error("Unexpected menu item selected")
+                }
+            }
+        }
+    }
+
     private fun openMusicMenuImpl(
         anchor: View,
         @MenuRes menuRes: Int,
@@ -226,6 +266,7 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
     /**
      * Open a menu. This menu will be managed by the Fragment and closed when the view is destroyed.
      * If a menu is already opened, this call is ignored.
+     *
      * @param anchor The [View] to anchor the menu to.
      * @param menuRes The resource of the menu to load.
      * @param block A block that is ran within [PopupMenu] that allows further configuration.
@@ -239,7 +280,6 @@ abstract class ListFragment<in T : Music, VB : ViewBinding> :
         currentMenu =
             PopupMenu(requireContext(), anchor).apply {
                 inflate(menuRes)
-                logD(menu is SupportMenu)
                 MenuCompat.setGroupDividerEnabled(menu, true)
                 block()
                 setOnDismissListener { currentMenu = null }

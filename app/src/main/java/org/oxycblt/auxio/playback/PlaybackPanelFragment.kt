@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Auxio Project
+ * PlaybackPanelFragment.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,10 +36,10 @@ import org.oxycblt.auxio.databinding.FragmentPlaybackPanelBinding
 import org.oxycblt.auxio.music.MusicParent
 import org.oxycblt.auxio.music.Song
 import org.oxycblt.auxio.music.resolveNames
+import org.oxycblt.auxio.navigation.MainNavigationAction
+import org.oxycblt.auxio.navigation.NavigationViewModel
 import org.oxycblt.auxio.playback.state.RepeatMode
 import org.oxycblt.auxio.playback.ui.StyledSeekBar
-import org.oxycblt.auxio.ui.MainNavigationAction
-import org.oxycblt.auxio.ui.NavigationViewModel
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.showToast
@@ -47,6 +48,7 @@ import org.oxycblt.auxio.util.systemBarInsetsCompat
 /**
  * A [ViewBindingFragment] more information about the currently playing song, alongside all
  * available controls.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 @AndroidEntryPoint
@@ -82,7 +84,9 @@ class PlaybackPanelFragment :
         }
 
         binding.playbackToolbar.apply {
-            setNavigationOnClickListener { navModel.mainNavigateTo(MainNavigationAction.Collapse) }
+            setNavigationOnClickListener {
+                navModel.mainNavigateTo(MainNavigationAction.ClosePlaybackPanel)
+            }
             setOnMenuItemClickListener(this@PlaybackPanelFragment)
         }
 

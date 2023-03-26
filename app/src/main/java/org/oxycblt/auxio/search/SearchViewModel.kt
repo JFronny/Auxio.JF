@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Auxio Project
+ * SearchViewModel.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,12 +33,13 @@ import org.oxycblt.auxio.list.BasicHeader
 import org.oxycblt.auxio.list.Item
 import org.oxycblt.auxio.list.Sort
 import org.oxycblt.auxio.music.*
-import org.oxycblt.auxio.music.model.Library
+import org.oxycblt.auxio.music.device.DeviceLibrary
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.util.logD
 
 /**
  * An [ViewModel] that keeps performs search operations and tracks their results.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 @HiltViewModel
@@ -48,7 +50,7 @@ constructor(
     private val searchEngine: SearchEngine,
     private val searchSettings: SearchSettings,
     private val playbackSettings: PlaybackSettings,
-) : ViewModel(), MusicRepository.Listener {
+) : ViewModel(), MusicRepository.UpdateListener {
     private var lastQuery: String? = null
     private var currentSearchJob: Job? = null
 
@@ -62,17 +64,16 @@ constructor(
         get() = playbackSettings.inListPlaybackMode
 
     init {
-        musicRepository.addListener(this)
+        musicRepository.addUpdateListener(this)
     }
 
     override fun onCleared() {
         super.onCleared()
-        musicRepository.removeListener(this)
+        musicRepository.removeUpdateListener(this)
     }
 
-    override fun onLibraryChanged(library: Library?) {
-        if (library != null) {
-            // Make sure our query is up to date with the music library.
+    override fun onMusicChanges(changes: MusicRepository.Changes) {
+        if (changes.deviceLibrary && musicRepository.deviceLibrary != null) {
             search(lastQuery)
         }
     }
@@ -80,6 +81,7 @@ constructor(
     /**
      * Asynchronously search the music library. Results will be pushed to [searchResults]. Will
      * cancel any previous search operations started prior.
+     *
      * @param query The query to search the music library for.
      */
     fun search(query: String?) {
@@ -87,8 +89,8 @@ constructor(
         currentSearchJob?.cancel()
         lastQuery = query
 
-        val library = musicRepository.library
-        if (query.isNullOrEmpty() || library == null) {
+        val deviceLibrary = musicRepository.deviceLibrary
+        if (query.isNullOrEmpty() || deviceLibrary == null) {
             logD("Search query is not applicable.")
             _searchResults.value = listOf()
             return
@@ -99,23 +101,27 @@ constructor(
         // Searching is time-consuming, so do it in the background.
         currentSearchJob =
             viewModelScope.launch {
-                _searchResults.value = searchImpl(library, query).also { yield() }
+                _searchResults.value = searchImpl(deviceLibrary, query).also { yield() }
             }
     }
 
-    private suspend fun searchImpl(library: Library, query: String): List<Item> {
+    private suspend fun searchImpl(deviceLibrary: DeviceLibrary, query: String): List<Item> {
         val filterMode = searchSettings.searchFilterMode
 
         val items =
             if (filterMode == null) {
                 // A nulled filter mode means to not filter anything.
-                SearchEngine.Items(library.songs, library.albums, library.artists, library.genres)
+                SearchEngine.Items(
+                    deviceLibrary.songs,
+                    deviceLibrary.albums,
+                    deviceLibrary.artists,
+                    deviceLibrary.genres)
             } else {
                 SearchEngine.Items(
-                    songs = if (filterMode == MusicMode.SONGS) library.songs else null,
-                    albums = if (filterMode == MusicMode.ALBUMS) library.albums else null,
-                    artists = if (filterMode == MusicMode.ARTISTS) library.artists else null,
-                    genres = if (filterMode == MusicMode.GENRES) library.genres else null)
+                    songs = if (filterMode == MusicMode.SONGS) deviceLibrary.songs else null,
+                    albums = if (filterMode == MusicMode.ALBUMS) deviceLibrary.albums else null,
+                    artists = if (filterMode == MusicMode.ARTISTS) deviceLibrary.artists else null,
+                    genres = if (filterMode == MusicMode.GENRES) deviceLibrary.genres else null)
             }
 
         val results = searchEngine.search(items, query)
@@ -142,6 +148,7 @@ constructor(
 
     /**
      * Returns the ID of the filter option to currently highlight.
+     *
      * @return A menu item ID of the filtering option selected.
      */
     @IdRes
@@ -151,12 +158,14 @@ constructor(
             MusicMode.ALBUMS -> R.id.option_filter_albums
             MusicMode.ARTISTS -> R.id.option_filter_artists
             MusicMode.GENRES -> R.id.option_filter_genres
+            MusicMode.PLAYLISTS -> R.id.option_filter_all // TODO: Handle
             // Null maps to filtering nothing.
             null -> R.id.option_filter_all
         }
 
     /**
      * Update the filter mode with the newly-selected filter option.
+     *
      * @return A menu item ID of the new filtering option selected.
      */
     fun setFilterOptionId(@IdRes id: Int) {

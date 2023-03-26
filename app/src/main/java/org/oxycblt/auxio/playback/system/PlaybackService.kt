@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Auxio Project
+ * PlaybackService.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +37,7 @@ import com.google.android.exoplayer2.audio.AudioCapabilities
 import com.google.android.exoplayer2.audio.MediaCodecAudioRenderer
 import com.google.android.exoplayer2.ext.ffmpeg.FfmpegAudioRenderer
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
-import com.google.android.exoplayer2.source.DefaultMediaSourceFactory
+import com.google.android.exoplayer2.source.MediaSource
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -44,11 +45,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.BuildConfig
-import org.oxycblt.auxio.music.AudioOnlyExtractors
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.MusicSettings
 import org.oxycblt.auxio.music.Song
-import org.oxycblt.auxio.music.model.Library
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.playback.persist.PersistenceRepository
 import org.oxycblt.auxio.playback.replaygain.ReplayGainAudioProcessor
@@ -71,11 +70,10 @@ import org.oxycblt.auxio.widgets.WidgetProvider
  * not the source of truth for the state, but rather the means to control system-side playback. Both
  * of those tasks are what [PlaybackStateManager] is for.
  *
- * TODO: Refactor lifecycle to run completely headless (i.e no activity needed)
- *
- * TODO: Android Auto
- *
  * @author Alexander Capehart (OxygenCobalt)
+ *
+ * TODO: Refactor lifecycle to run completely headless (i.e no activity needed)
+ * TODO: Android Auto
  */
 @AndroidEntryPoint
 class PlaybackService :
@@ -83,9 +81,10 @@ class PlaybackService :
     Player.Listener,
     InternalPlayer,
     MediaSessionComponent.Listener,
-    MusicRepository.Listener {
+    MusicRepository.UpdateListener {
     // Player components
     private lateinit var player: ExoPlayer
+    @Inject lateinit var mediaSourceFactory: MediaSource.Factory
     @Inject lateinit var replayGainProcessor: ReplayGainAudioProcessor
 
     // System backend components
@@ -115,9 +114,6 @@ class PlaybackService :
     override fun onCreate() {
         super.onCreate()
 
-        // Define our own extractors so we can exclude non-audio parsers.
-        // Ordering is derived from the DefaultExtractorsFactory's optimized ordering:
-        // https://docs.google.com/document/d/1w2mKaWMxfz2Ei8-LdxqbPs1VLe_oudB-eryXXw9OvQQ.
         // Since Auxio is a music player, only specify an audio renderer to save
         // battery/apk size/cache size
         val audioRenderer = RenderersFactory { handler, _, audioListener, _, _ ->
@@ -134,7 +130,7 @@ class PlaybackService :
 
         player =
             ExoPlayer.Builder(this, audioRenderer)
-                .setMediaSourceFactory(DefaultMediaSourceFactory(this, AudioOnlyExtractors))
+                .setMediaSourceFactory(mediaSourceFactory)
                 // Enable automatic WakeLock support
                 .setWakeMode(C.WAKE_MODE_LOCAL)
                 .setAudioAttributes(
@@ -151,7 +147,7 @@ class PlaybackService :
         // Initialize any listener-dependent components last as we wouldn't want a listener race
         // condition to cause us to load music before we were fully initialize.
         playbackManager.registerInternalPlayer(this)
-        musicRepository.addListener(this)
+        musicRepository.addUpdateListener(this)
         mediaSessionComponent.registerListener(this)
         registerReceiver(
             systemReceiver,
@@ -190,7 +186,7 @@ class PlaybackService :
         // Pause just in case this destruction was unexpected.
         playbackManager.setPlaying(false)
         playbackManager.unregisterInternalPlayer(this)
-        musicRepository.removeListener(this)
+        musicRepository.removeUpdateListener(this)
 
         unregisterReceiver(systemReceiver)
         serviceJob.cancel()
@@ -230,11 +226,7 @@ class PlaybackService :
             // No song, stop playback and foreground state.
             logD("Nothing playing, stopping playback")
             player.stop()
-            if (openAudioEffectSession) {
-                // Make sure to close the audio session when we stop playback.
-                broadcastAudioEffectAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
-                openAudioEffectSession = false
-            }
+
             stopAndSave()
             return
         }
@@ -242,15 +234,6 @@ class PlaybackService :
         logD("Loading ${song.rawName}")
         player.setMediaItem(MediaItem.fromUri(song.uri))
         player.prepare()
-
-        if (!openAudioEffectSession) {
-            // Android does not like it if you start an audio effect session without having
-            // something within your player buffer. Make sure we only start one when we load
-            // a song.
-            broadcastAudioEffectAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
-            openAudioEffectSession = true
-        }
-
         player.playWhenReady = play
     }
 
@@ -267,9 +250,21 @@ class PlaybackService :
 
     override fun onEvents(player: Player, events: Player.Events) {
         super.onEvents(player, events)
-        if (events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED) && player.playWhenReady) {
-            // Mark that we have started playing so that the notification can now be posted.
-            hasPlayed = true
+        if (events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
+            if (player.playWhenReady) {
+                // Mark that we have started playing so that the notification can now be posted.
+                hasPlayed = true
+                if (!openAudioEffectSession) {
+                    // Convention to start an audioeffect session on play/pause rather than
+                    // start/stop
+                    broadcastAudioEffectAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
+                    openAudioEffectSession = true
+                }
+            } else if (openAudioEffectSession) {
+                // Make sure to close the audio session when we stop playback.
+                broadcastAudioEffectAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
+                openAudioEffectSession = false
+            }
         }
 
         // Any change to the analogous isPlaying, isAdvancing, or positionMs values require
@@ -303,10 +298,8 @@ class PlaybackService :
         playbackManager.next()
     }
 
-    // --- MUSICSTORE OVERRIDES ---
-
-    override fun onLibraryChanged(library: Library?) {
-        if (library != null) {
+    override fun onMusicChanges(changes: MusicRepository.Changes) {
+        if (changes.deviceLibrary && musicRepository.deviceLibrary != null) {
             // We now have a library, see if we have anything we need to do.
             playbackManager.requestAction(this)
         }
@@ -335,8 +328,8 @@ class PlaybackService :
     }
 
     override fun performAction(action: InternalPlayer.Action): Boolean {
-        val library =
-            musicRepository.library
+        val deviceLibrary =
+            musicRepository.deviceLibrary
             // No library, cannot do anything.
             ?: return false
 
@@ -346,22 +339,23 @@ class PlaybackService :
             // Restore state -> Start a new restoreState job
             is InternalPlayer.Action.RestoreState -> {
                 restoreScope.launch {
-                    persistenceRepository.readState(library)?.let {
+                    persistenceRepository.readState()?.let {
                         playbackManager.applySavedState(it, false)
                     }
                 }
             }
             // Shuffle all -> Start new playback from all songs
             is InternalPlayer.Action.ShuffleAll -> {
-                playbackManager.play(null, null, musicSettings.songSort.songs(library.songs), true)
+                playbackManager.play(
+                    null, null, musicSettings.songSort.songs(deviceLibrary.songs), true)
             }
             // Open -> Try to find the Song for the given file and then play it from all songs
             is InternalPlayer.Action.Open -> {
-                library.findSongForUri(application, action.uri)?.let { song ->
+                deviceLibrary.findSongForUri(application, action.uri)?.let { song ->
                     playbackManager.play(
                         song,
                         null,
-                        musicSettings.songSort.songs(library.songs),
+                        musicSettings.songSort.songs(deviceLibrary.songs),
                         playbackManager.queue.isShuffled && playbackSettings.keepShuffle)
                 }
             }

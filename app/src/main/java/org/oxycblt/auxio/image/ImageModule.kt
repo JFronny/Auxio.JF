@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * ImageModule.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,11 +28,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import org.oxycblt.auxio.image.extractor.AlbumCoverFetcher
-import org.oxycblt.auxio.image.extractor.ArtistImageFetcher
-import org.oxycblt.auxio.image.extractor.ErrorCrossfadeTransitionFactory
-import org.oxycblt.auxio.image.extractor.GenreImageFetcher
-import org.oxycblt.auxio.image.extractor.MusicKeyer
+import org.oxycblt.auxio.image.extractor.*
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -49,7 +46,8 @@ class CoilModule {
         songFactory: AlbumCoverFetcher.SongFactory,
         albumFactory: AlbumCoverFetcher.AlbumFactory,
         artistFactory: ArtistImageFetcher.Factory,
-        genreFactory: GenreImageFetcher.Factory
+        genreFactory: GenreImageFetcher.Factory,
+        playlistFactory: PlaylistImageFetcher.Factory
     ) =
         ImageLoader.Builder(context)
             .components {
@@ -59,6 +57,7 @@ class CoilModule {
                 add(albumFactory)
                 add(artistFactory)
                 add(genreFactory)
+                add(playlistFactory)
             }
             // Use our own crossfade with error drawable support
             .transitionFactory(ErrorCrossfadeTransitionFactory())

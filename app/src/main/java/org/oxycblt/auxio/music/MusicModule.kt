@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * MusicModule.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,13 +23,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import org.oxycblt.auxio.music.system.Indexer
-import org.oxycblt.auxio.music.system.IndexerImpl
 
 @Module
 @InstallIn(SingletonComponent::class)
 interface MusicModule {
     @Singleton @Binds fun repository(musicRepository: MusicRepositoryImpl): MusicRepository
-    @Singleton @Binds fun indexer(indexer: IndexerImpl): Indexer
     @Binds fun settings(musicSettingsImpl: MusicSettingsImpl): MusicSettings
 }

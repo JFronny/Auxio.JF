@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2022 Auxio Project
+ * PlaybackBarFragment.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +26,9 @@ import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentPlaybackBarBinding
 import org.oxycblt.auxio.music.Song
 import org.oxycblt.auxio.music.resolveNames
+import org.oxycblt.auxio.navigation.MainNavigationAction
+import org.oxycblt.auxio.navigation.NavigationViewModel
 import org.oxycblt.auxio.playback.state.RepeatMode
-import org.oxycblt.auxio.ui.MainNavigationAction
-import org.oxycblt.auxio.ui.NavigationViewModel
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.getAttrColorCompat
@@ -35,6 +36,7 @@ import org.oxycblt.auxio.util.getColorCompat
 
 /**
  * A [ViewBindingFragment] that shows the current playback state in a compact manner.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 @AndroidEntryPoint
@@ -54,7 +56,7 @@ class PlaybackBarFragment : ViewBindingFragment<FragmentPlaybackBarBinding>() {
 
         // --- UI SETUP ---
         binding.root.apply {
-            setOnClickListener { navModel.mainNavigateTo(MainNavigationAction.Expand) }
+            setOnClickListener { navModel.mainNavigateTo(MainNavigationAction.OpenPlaybackPanel) }
             setOnLongClickListener {
                 playbackModel.song.value?.let(navModel::exploreNavigateTo)
                 true

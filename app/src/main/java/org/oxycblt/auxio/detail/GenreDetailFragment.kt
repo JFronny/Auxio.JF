@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Auxio Project
+ * GenreDetailFragment.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,38 +25,34 @@ import android.view.View
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.ConcatAdapter
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentDetailBinding
-import org.oxycblt.auxio.detail.recycler.DetailAdapter
-import org.oxycblt.auxio.detail.recycler.GenreDetailAdapter
+import org.oxycblt.auxio.detail.header.DetailHeaderAdapter
+import org.oxycblt.auxio.detail.header.GenreDetailHeaderAdapter
+import org.oxycblt.auxio.detail.list.DetailListAdapter
+import org.oxycblt.auxio.detail.list.GenreDetailListAdapter
 import org.oxycblt.auxio.list.Item
 import org.oxycblt.auxio.list.ListFragment
 import org.oxycblt.auxio.list.Sort
-import org.oxycblt.auxio.list.adapter.BasicListInstructions
 import org.oxycblt.auxio.list.selection.SelectionViewModel
-import org.oxycblt.auxio.music.Album
-import org.oxycblt.auxio.music.Artist
-import org.oxycblt.auxio.music.Genre
-import org.oxycblt.auxio.music.Music
-import org.oxycblt.auxio.music.MusicParent
-import org.oxycblt.auxio.music.Song
+import org.oxycblt.auxio.music.*
+import org.oxycblt.auxio.navigation.NavigationViewModel
 import org.oxycblt.auxio.playback.PlaybackViewModel
-import org.oxycblt.auxio.ui.NavigationViewModel
-import org.oxycblt.auxio.util.collect
-import org.oxycblt.auxio.util.collectImmediately
-import org.oxycblt.auxio.util.logD
-import org.oxycblt.auxio.util.showToast
-import org.oxycblt.auxio.util.unlikelyToBeNull
+import org.oxycblt.auxio.util.*
 
 /**
  * A [ListFragment] that shows information for a particular [Genre].
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 @AndroidEntryPoint
 class GenreDetailFragment :
-    ListFragment<Music, FragmentDetailBinding>(), DetailAdapter.Listener<Music> {
+    ListFragment<Music, FragmentDetailBinding>(),
+    DetailHeaderAdapter.Listener,
+    DetailListAdapter.Listener<Music> {
     private val detailModel: DetailViewModel by activityViewModels()
     override val navModel: NavigationViewModel by activityViewModels()
     override val playbackModel: PlaybackViewModel by activityViewModels()
@@ -63,7 +60,8 @@ class GenreDetailFragment :
     // Information about what genre to display is initially within the navigation arguments
     // as a UID, as that is the only safe way to parcel an genre.
     private val args: GenreDetailFragmentArgs by navArgs()
-    private val detailAdapter = GenreDetailAdapter(this)
+    private val genreHeaderAdapter = GenreDetailHeaderAdapter(this)
+    private val genreListAdapter = GenreDetailListAdapter(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,21 +81,21 @@ class GenreDetailFragment :
 
         // --- UI SETUP ---
         binding.detailToolbar.apply {
-            inflateMenu(R.menu.menu_genre_artist_detail)
+            inflateMenu(R.menu.menu_parent_detail)
             setNavigationOnClickListener { findNavController().navigateUp() }
             setOnMenuItemClickListener(this@GenreDetailFragment)
         }
 
-        binding.detailRecycler.adapter = detailAdapter
+        binding.detailRecycler.adapter = ConcatAdapter(genreHeaderAdapter, genreListAdapter)
 
         // --- VIEWMODEL SETUP ---
         // DetailViewModel handles most initialization from the navigation argument.
         detailModel.setGenreUid(args.genreUid)
-        collectImmediately(detailModel.currentGenre, ::updateItem)
+        collectImmediately(detailModel.currentGenre, ::updatePlaylist)
         collectImmediately(detailModel.genreList, ::updateList)
         collectImmediately(
             playbackModel.song, playbackModel.parent, playbackModel.isPlaying, ::updatePlayback)
-        collect(navModel.exploreNavigationItem, ::handleNavigation)
+        collect(navModel.exploreNavigationItem.flow, ::handleNavigation)
         collectImmediately(selectionModel.selected, ::updateSelection)
     }
 
@@ -105,6 +103,9 @@ class GenreDetailFragment :
         super.onDestroyBinding(binding)
         binding.detailToolbar.setOnMenuItemClickListener(null)
         binding.detailRecycler.adapter = null
+        // Avoid possible race conditions that could cause a bad replace instruction to be consumed
+        // during list initialization and crash the app. Could happen if the user is fast enough.
+        detailModel.genreInstructions.consume()
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
@@ -148,7 +149,7 @@ class GenreDetailFragment :
 
     override fun onOpenMenu(item: Music, anchor: View) {
         when (item) {
-            is Artist -> openMusicMenu(anchor, R.menu.menu_artist_actions, item)
+            is Artist -> openMusicMenu(anchor, R.menu.menu_parent_actions, item)
             is Song -> openMusicMenu(anchor, R.menu.menu_song_actions, item)
             else -> error("Unexpected datatype: ${item::class.simpleName}")
         }
@@ -164,8 +165,10 @@ class GenreDetailFragment :
 
     override fun onOpenSortMenu(anchor: View) {
         openMenu(anchor, R.menu.menu_genre_sort) {
+            // Select the corresponding sort mode option
             val sort = detailModel.genreSongSort
             unlikelyToBeNull(menu.findItem(sort.mode.itemId)).isChecked = true
+            // Select the corresponding sort direction option
             val directionItemId =
                 when (sort.direction) {
                     Sort.Direction.ASCENDING -> R.id.option_sort_asc
@@ -176,8 +179,10 @@ class GenreDetailFragment :
                 item.isChecked = !item.isChecked
                 detailModel.genreSongSort =
                     when (item.itemId) {
+                        // Sort direction options
                         R.id.option_sort_asc -> sort.withDirection(Sort.Direction.ASCENDING)
                         R.id.option_sort_dec -> sort.withDirection(Sort.Direction.DESCENDING)
+                        // Any other option is a sort mode
                         else -> sort.withMode(unlikelyToBeNull(Sort.Mode.fromItemId(item.itemId)))
                     }
                 true
@@ -185,14 +190,14 @@ class GenreDetailFragment :
         }
     }
 
-    private fun updateItem(genre: Genre?) {
+    private fun updatePlaylist(genre: Genre?) {
         if (genre == null) {
             // Genre we were showing no longer exists.
             findNavController().navigateUp()
             return
         }
-
         requireBinding().detailToolbar.title = genre.resolveName(requireContext())
+        genreHeaderAdapter.setParent(genre)
     }
 
     private fun updatePlayback(song: Song?, parent: MusicParent?, isPlaying: Boolean) {
@@ -204,7 +209,7 @@ class GenreDetailFragment :
         if (parent is Genre && parent.uid == unlikelyToBeNull(detailModel.currentGenre.value).uid) {
             playingMusic = song
         }
-        detailAdapter.setPlaying(playingMusic, isPlaying)
+        genreListAdapter.setPlaying(playingMusic, isPlaying)
     }
 
     private fun handleNavigation(item: Music?) {
@@ -212,31 +217,31 @@ class GenreDetailFragment :
             is Song -> {
                 logD("Navigating to another song")
                 findNavController()
-                    .navigate(GenreDetailFragmentDirections.actionShowAlbum(item.album.uid))
+                    .navigateSafe(GenreDetailFragmentDirections.actionShowAlbum(item.album.uid))
             }
             is Album -> {
                 logD("Navigating to another album")
                 findNavController()
-                    .navigate(GenreDetailFragmentDirections.actionShowAlbum(item.uid))
+                    .navigateSafe(GenreDetailFragmentDirections.actionShowAlbum(item.uid))
             }
             is Artist -> {
                 logD("Navigating to another artist")
                 findNavController()
-                    .navigate(GenreDetailFragmentDirections.actionShowArtist(item.uid))
+                    .navigateSafe(GenreDetailFragmentDirections.actionShowArtist(item.uid))
             }
             is Genre -> {
-                navModel.finishExploreNavigation()
+                navModel.exploreNavigationItem.consume()
             }
-            null -> {}
+            else -> {}
         }
     }
 
-    private fun updateList(items: List<Item>) {
-        detailAdapter.submitList(items, BasicListInstructions.DIFF)
+    private fun updateList(list: List<Item>) {
+        genreListAdapter.update(list, detailModel.genreInstructions.consume())
     }
 
     private fun updateSelection(selected: List<Music>) {
-        detailAdapter.setSelected(selected.toSet())
+        genreListAdapter.setSelected(selected.toSet())
         requireBinding().detailSelectionToolbar.updateSelectionAmount(selected.size)
     }
 }

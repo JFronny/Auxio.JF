@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Auxio Project
+ * WidgetComponent.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +42,7 @@ import org.oxycblt.auxio.util.logD
 /**
  * A component that manages the "Now Playing" state. This is kept separate from the [WidgetProvider]
  * itself to prevent possible memory leaks and enable extension to more widgets in the future.
+ *
  * @author Alexander Capehart (OxygenCobalt)
  */
 class WidgetComponent
@@ -91,7 +93,7 @@ constructor(
                         }
 
                     return if (cornerRadius > 0) {
-                        // If rounded, educe the bitmap size further to obtain more pronounced
+                        // If rounded, reduce the bitmap size further to obtain more pronounced
                         // rounded corners.
                         builder
                             .size(getSafeRemoteViewsImageSize(context, 10f))
@@ -134,6 +136,7 @@ constructor(
 
     /**
      * A condensed form of the playback state that is safe to use in AppWidgets.
+     *
      * @param song [Queue.currentSong]
      * @param cover A pre-loaded album cover [Bitmap] for [song].
      * @param isPlaying [PlaybackStateManager.playerState]

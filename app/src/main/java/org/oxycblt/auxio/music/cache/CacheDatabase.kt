@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * CacheDatabase.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,10 +27,10 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import org.oxycblt.auxio.music.device.RawSong
 import org.oxycblt.auxio.music.metadata.Date
 import org.oxycblt.auxio.music.metadata.correctWhitespace
 import org.oxycblt.auxio.music.metadata.splitEscaped
-import org.oxycblt.auxio.music.model.RawSong
 
 @Database(entities = [CachedSong::class], version = 27, exportSchema = false)
 abstract class CacheDatabase : RoomDatabase() {

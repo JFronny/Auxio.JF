@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * FakeMusicSettings.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +19,7 @@
 package org.oxycblt.auxio.music
 
 import org.oxycblt.auxio.list.Sort
-import org.oxycblt.auxio.music.storage.MusicDirectories
+import org.oxycblt.auxio.music.fs.MusicDirectories
 
 open class FakeMusicSettings : MusicSettings {
     override fun registerListener(listener: MusicSettings.Listener) = throw NotImplementedError()
@@ -33,7 +34,7 @@ open class FakeMusicSettings : MusicSettings {
     override var multiValueSeparators: String
         get() = throw NotImplementedError()
         set(_) = throw NotImplementedError()
-    override val automaticSortNames: Boolean
+    override val intelligentSorting: Boolean
         get() = throw NotImplementedError()
     override var songSort: Sort
         get() = throw NotImplementedError()
@@ -47,6 +48,9 @@ open class FakeMusicSettings : MusicSettings {
     override var genreSort: Sort
         get() = throw NotImplementedError()
         set(_) = throw NotImplementedError()
+    override var playlistSort: Sort
+        get() = throw NotImplementedError()
+        set(_) = throw NotImplementedError()
     override var albumSongSort: Sort
         get() = throw NotImplementedError()
         set(_) = throw NotImplementedError()
@@ -54,6 +58,9 @@ open class FakeMusicSettings : MusicSettings {
         get() = throw NotImplementedError()
         set(_) = throw NotImplementedError()
     override var genreSongSort: Sort
+        get() = throw NotImplementedError()
+        set(_) = throw NotImplementedError()
+    override var playlistSongSort: Sort
         get() = throw NotImplementedError()
         set(_) = throw NotImplementedError()
 }

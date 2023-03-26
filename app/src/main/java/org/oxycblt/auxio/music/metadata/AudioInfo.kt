@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Auxio Project
+ * AudioInfo.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,13 +24,14 @@ import android.media.MediaFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import org.oxycblt.auxio.music.Song
-import org.oxycblt.auxio.music.storage.MimeType
+import org.oxycblt.auxio.music.fs.MimeType
 import org.oxycblt.auxio.util.logD
 import org.oxycblt.auxio.util.logE
 import org.oxycblt.auxio.util.logW
 
 /**
  * The properties of a [Song]'s file.
+ *
  * @param bitrateKbps The bit rate, in kilobytes-per-second. Null if it could not be parsed.
  * @param sampleRateHz The sample rate, in hertz.
  * @param resolvedMimeType The known mime type of the [Song] after it's file format was determined.
@@ -41,9 +43,10 @@ data class AudioInfo(
     val resolvedMimeType: MimeType
 ) {
     /** Implements the process of extracting [AudioInfo] from a given [Song]. */
-    interface Provider {
+    interface Factory {
         /**
          * Extract the [AudioInfo] of a given [Song].
+         *
          * @param song The [Song] to read.
          * @return The [AudioInfo] of the [Song], if possible to obtain.
          */
@@ -52,11 +55,12 @@ data class AudioInfo(
 }
 
 /**
- * A framework-backed implementation of [AudioInfo.Provider].
+ * A framework-backed implementation of [AudioInfo.Factory].
+ *
  * @param context [Context] required to read audio files.
  */
-class AudioInfoProviderImpl @Inject constructor(@ApplicationContext private val context: Context) :
-    AudioInfo.Provider {
+class AudioInfoFactoryImpl @Inject constructor(@ApplicationContext private val context: Context) :
+    AudioInfo.Factory {
 
     override suspend fun extract(song: Song): AudioInfo {
         // While we would use ExoPlayer to extract this information, it doesn't support
